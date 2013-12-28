@@ -1,0 +1,272 @@
+//
+//  LevelOverScene.mm
+//  Fireballin
+//
+//  Created by Jeffrey Russell Ellis on 4/11/11.
+//  Copyright 2011 __MyCompanyName__. All rights reserved.
+//
+
+#import "LevelOverScene.h"
+#import "MenuScene.h"
+#import "GameScene.h"
+#import "MainMenu.h"
+#import "WorldSelect.h"
+#import "LevelSelect.h"
+#import "LiteModeLevelSelect.h"
+#import "SpecialPushScene.h"
+#import "cocos2d.h"
+#import "CCVideoPlayer.h"
+
+
+@implementation LevelOverScene
+
++(id) scene
+{
+	// 'scene' is an autorelease object.
+	CCScene *scene = [CCScene node];
+	
+	// 'layer' is an autorelease object.
+	LevelOverScene *layer = [LevelOverScene node];
+	
+	// add layer as a child to scene
+	[scene addChild: layer];
+	
+	// return the scene
+	return scene;
+}
+
+- (id) initWithInfo:(int) energy setLevel:(int) level world:(int) worldNum;
+{
+	if( (self=[super init] )) {
+        
+        isIpad = [CCDirector sharedDirector].winSize.width == 1024 ? YES : NO;
+        
+        float lightModeOffset = 0.0f;
+#ifdef LITEMODE
+        lightModeOffset = 32.0f;
+#endif
+        curWorld = worldNum;
+        CCSprite* levelsNormalSprite;
+        CCSprite* levelsSelectSprite;
+        CCSprite* normalSprite2;
+        CCSprite* selectedSprite2;
+        CCSprite* normalSprite3;
+        CCSprite* selectedSprite3;
+        if(isIpad) {
+            levelsNormalSprite = [CCSprite spriteWithFile:@"LevelsButtonOver-hd.png"];
+            levelsSelectSprite = [CCSprite spriteWithFile:@"LevelsButtonOver-hd.png"];
+            normalSprite2 = [CCSprite spriteWithFile:@"RetryButtonOver-hd.png"];
+            selectedSprite2 = [CCSprite spriteWithFile:@"RetryButtonOver-hd.png"];
+            normalSprite3 = [CCSprite spriteWithFile:@"NextOver-hd.png"];
+            selectedSprite3 = [CCSprite spriteWithFile:@"NextOver-hd.png"];
+        } else {
+            levelsNormalSprite = [CCSprite spriteWithFile:@"LevelsButtonOver.png"];
+            levelsSelectSprite = [CCSprite spriteWithFile:@"LevelsButtonOver.png"];
+            normalSprite2 = [CCSprite spriteWithFile:@"RetryButtonOver.png"];
+            selectedSprite2 = [CCSprite spriteWithFile:@"RetryButtonOver.png"];
+            normalSprite3 = [CCSprite spriteWithFile:@"NextOver.png"];
+            selectedSprite3 = [CCSprite spriteWithFile:@"NextOver.png"];
+        }
+        CCMenuItemSprite *menuItem1 = [CCMenuItemSprite itemFromNormalSprite:levelsNormalSprite selectedSprite:levelsSelectSprite target:self selector:@selector(onSelect:)];
+		
+        CCMenuItemSprite *menuItem2 = [CCMenuItemSprite itemFromNormalSprite:normalSprite2 selectedSprite:selectedSprite2 target:self selector:@selector(onRetry:)];
+        
+        CCMenuItemSprite *menuItem3 = [CCMenuItemSprite itemFromNormalSprite:normalSprite3 selectedSprite:selectedSprite3 target:self selector:@selector(onNext:)];
+		
+        energy_collected = energy;
+        curLevel = level;
+		NSString* energy_string = [NSString stringWithFormat:@"%i", energy_collected];
+		NSMutableArray * levels = [MenuScene getLevels:curWorld-1];
+		Level * currentLevel = [levels objectAtIndex:curLevel-1];
+		int possible_energy = [currentLevel getCoins].count;
+		NSString* possible_energy_string = [NSString stringWithFormat:@"%i", possible_energy];
+		
+		screenSize = [[CCDirector sharedDirector] winSize];
+        
+        NSString* level_string = [NSString stringWithFormat:@"%i-", level + 1];
+        NSString* lock_key_string = [level_string stringByAppendingString:@"Lock-"];
+        NSString* world_string = [NSString stringWithFormat:@"%i", curWorld];
+        lock_key_string = [lock_key_string stringByAppendingString:world_string];
+        int lock_val = [[NSUserDefaults standardUserDefaults] floatForKey:lock_key_string];
+		
+		CCMenu *menu;
+        if(lock_val == 0 || level == 50) {
+            menu = [CCMenu menuWithItems:menuItem1, menuItem2, nil];   
+        } else {
+            menu = [CCMenu menuWithItems:menuItem1, menuItem2, menuItem3, nil];  
+        }
+        
+		[menu alignItemsHorizontally];
+		menu.position = ccp(screenSize.width/2, screenSize.height/2 - 40);
+		[self addChild:menu];
+		
+		//NSString *endText = @"Game Over!";
+		NSString *BaseEnergyText = @"";
+		NSString *NumEnergyText = [BaseEnergyText stringByAppendingString:energy_string];
+		NSString *SlashText = [NumEnergyText stringByAppendingString:@"/"];
+		NSString *PossibleEnergy = [SlashText stringByAppendingString:possible_energy_string];
+		NSString *totalEnergyText = [PossibleEnergy stringByAppendingString:@""];		
+		
+		//CCLabelTTF *title = [CCLabelTTF labelWithString:endText fontName:@"Futura" fontSize:80];
+        CCSprite *title;
+        if(isIpad) {
+            title = [CCSprite spriteWithFile:@"GameOverSmall-hd.png"];
+        } else {
+            title = [CCSprite spriteWithFile:@"GameOverSmall.png"];
+        }
+		title.position = ccp(screenSize.width/2, screenSize.height/2 + 40);
+        if(isIpad) {
+           title.position = ccp(screenSize.width/2, screenSize.height/2 + 80);
+        }
+		//title.color = ccc3(250, 0, 0);
+		[self addChild:title];
+        
+        CCSprite *radia;
+        if (isIpad) {
+            radia = [CCSprite spriteWithFile:@"GlowEnergyBall-hd.png"];
+            radia.position = ccp(screenSize.width - 60, 60);
+        } else {
+            radia = [CCSprite spriteWithFile:@"GlowEnergyBall.png"];
+            radia.position = ccp(screenSize.width - 30, 30);
+        }
+        [self addChild:radia];
+		
+        int scoreFontSize = 30;
+        if(isIpad) {
+            scoreFontSize = 60;
+        }
+		CCLabelTTF *scoreLabel = [CCLabelTTF labelWithString:totalEnergyText fontName:@"Futura" fontSize:scoreFontSize];
+		//scoreLabel.position = ccp(screenSize.width/2, screenSize.height - 2.5*screenSize.height/8);
+        scoreLabel.anchorPoint = ccp(1,0);
+		scoreLabel.position = ccp(screenSize.width - 60, 10 + lightModeOffset);
+        if(isIpad) {
+            scoreLabel.position = ccp(screenSize.width - 120, 20 + lightModeOffset);
+        }
+		[self addChild:scoreLabel];
+        
+#ifdef LITEMODE
+        NSArray * subviews = [[CCDirector sharedDirector]openGLView].subviews;
+        for (ADBannerView *adView in subviews) {
+            adView.hidden = NO;
+            //[sv release];
+        }
+#endif
+        
+        CCParticleSystem* particle_system = [CCParticleSystemQuad particleWithFile:@"gameOver.plist"];
+        [self addChild:particle_system z:-2];
+        particle_system.blendFunc = (ccBlendFunc){GL_ONE, GL_ONE};
+        if(isIpad) {
+            particle_system.endSize = particle_system.endSize * 2;
+            particle_system.totalParticles = particle_system.totalParticles * 0.5;
+        }
+        particle_system.position = ccp(screenSize.width/2, screenSize.height/2);
+        [particle_system resetSystem];
+        
+        if(![[SimpleAudioEngine sharedEngine] isBackgroundMusicPlaying]) { [[SimpleAudioEngine sharedEngine] playBackgroundMusic:@"gameOver.mp3" loop:YES]; }
+        
+        CCSprite* bg;
+        //ccColor4F trailColor;
+        if(curWorld == 1) {
+            if(level >= 11 && level <= 20) {
+                particle_system = [CCParticleSystemQuad particleWithFile:@"level20-1.plist"];
+                bg = [CCSprite spriteWithFile:@"redBg.png"];
+            } else if(level >= 21 && level <= 30) {
+                particle_system = [CCParticleSystemQuad particleWithFile:@"level30-1.plist"];
+                bg = [CCSprite spriteWithFile:@"yellowBg.png"];
+            } else if(level >= 31 && level <= 40) {
+                particle_system = [CCParticleSystemQuad particleWithFile:@"level40-1.plist"];
+                bg = [CCSprite spriteWithFile:@"greenBg.png"];
+            } else if(level >= 41 && level <= 50) {
+                particle_system = [CCParticleSystemQuad particleWithFile:@"level50-1.plist"];
+                bg = [CCSprite spriteWithFile:@"darkBg.png"];
+            } else {
+                particle_system = [CCParticleSystemQuad particleWithFile:@"level10-1.plist"];
+                bg = [CCSprite spriteWithFile:@"blueBg.png"];
+            }
+        } else {
+            particle_system = [CCParticleSystemQuad particleWithFile:@"level10-1.plist"];
+            bg = [CCSprite spriteWithFile:@"blueBg.png"];
+        }
+        bg.position = ccp(240, 160);
+        //[self addChild:bg z:-200];
+	}
+	return self;
+}
+
+- (void)onSelect:(id)sender
+{
+    [[SimpleAudioEngine sharedEngine] stopBackgroundMusic];
+    [[SimpleAudioEngine sharedEngine] playEffect:@"buttonClick.WAV"];
+	NSLog(@"on select level");
+    float currentWorld;
+    int tempLevel = curLevel;
+    for(currentWorld = 0; tempLevel > 0; currentWorld++) {
+        tempLevel -=10;
+    }
+	[[CCDirector sharedDirector] replaceScene:[[MainMenu node] initLevelOver:curWorld page:currentWorld]];
+}
+
+- (void)onRetry:(id)sender
+{
+    [[SimpleAudioEngine sharedEngine] stopBackgroundMusic];
+    [[SimpleAudioEngine sharedEngine] playEffect:@"buttonClick.WAV"];
+	NSLog(@"on retry");
+    [[CCDirector sharedDirector] replaceScene:[CCTransitionFade transitionWithDuration:1.0 scene:[[Game node] initWithGameDifficulty:HARD setMode:LEVEL levelNum:curLevel worldNum:curWorld]]];
+}
+
+
+- (void)onNext:(id)sender
+{
+    [[SimpleAudioEngine sharedEngine] playEffect:@"buttonClick.WAV"];
+	NSLog(@"on next");
+    
+    if(curLevel == 10 && curWorld == 1 && [[NSUserDefaults standardUserDefaults] floatForKey:@"slow"] == 0)
+    {
+        [CCVideoPlayer setNoSkip:true];
+        [[CCDirector sharedDirector] replaceScene:[[Game node] initWithGameDifficulty:HARD setMode:LEVEL levelNum:curLevel+1 worldNum:curWorld]];
+        [[CCDirector sharedDirector] pushScene:[[SpecialPushScene node] initVideo:curLevel+1]];
+        [[NSUserDefaults standardUserDefaults] setFloat:1 forKey:@"slow"];
+		[[NSUserDefaults standardUserDefaults] synchronize];
+    }
+    else if(curLevel == 20 && curWorld == 1 && [[NSUserDefaults standardUserDefaults] floatForKey:@"invincible"] == 0)
+    {
+        [CCVideoPlayer setNoSkip:true];
+        [[CCDirector sharedDirector] replaceScene:[[Game node] initWithGameDifficulty:HARD setMode:LEVEL levelNum:curLevel+1 worldNum:curWorld]];
+        [[CCDirector sharedDirector] pushScene:[[SpecialPushScene node] initVideo:curLevel+1]];
+        [[NSUserDefaults standardUserDefaults] setFloat:1 forKey:@"invincible"];
+		[[NSUserDefaults standardUserDefaults] synchronize];
+    }
+    else if(curLevel == 30 && curWorld == 1 && [[NSUserDefaults standardUserDefaults] floatForKey:@"destroy"] == 0)
+    {
+        [CCVideoPlayer setNoSkip:true];
+        [[CCDirector sharedDirector] replaceScene:[[Game node] initWithGameDifficulty:HARD setMode:LEVEL levelNum:curLevel+1 worldNum:curWorld]];
+        [[CCDirector sharedDirector] pushScene:[[SpecialPushScene node] initVideo:curLevel+1]];
+        [[NSUserDefaults standardUserDefaults] setFloat:1 forKey:@"destroy"];
+		[[NSUserDefaults standardUserDefaults] synchronize];
+    }
+    else if(curLevel == 40 && curWorld == 1 && [[NSUserDefaults standardUserDefaults] floatForKey:@"demolish"] == 0)
+    {
+        [CCVideoPlayer setNoSkip:true];
+        [[CCDirector sharedDirector] replaceScene:[[Game node] initWithGameDifficulty:HARD setMode:LEVEL levelNum:curLevel+1 worldNum:curWorld]];
+        [[CCDirector sharedDirector] pushScene:[[SpecialPushScene node] initVideo:curLevel+1]];
+        [[NSUserDefaults standardUserDefaults] setFloat:1 forKey:@"demolish"];
+		[[NSUserDefaults standardUserDefaults] synchronize];
+    }
+    else
+    {
+        [[CCDirector sharedDirector] replaceScene:[CCTransitionFade transitionWithDuration:1.0 scene:[[Game node] initWithGameDifficulty:HARD setMode:LEVEL levelNum:curLevel+1 worldNum:curWorld]]];
+    }
+}
+
+// on "dealloc" you need to release all your retained objects
+- (void) dealloc
+{
+	// in case you have something to dealloc, do it in this method
+	// in this particular example nothing needs to be released.
+	// cocos2d will automatically release all the children (Label)
+	
+	// don't forget to call "super dealloc"
+	[super dealloc];
+}
+@end
+

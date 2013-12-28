@@ -1,0 +1,107 @@
+//
+//  Wall.h
+//  Fireballin
+//
+//  Created by Brian Clark on 12/26/11.
+//  Copyright (c) 2011 U of Michigan. All rights reserved.
+//
+
+#import <Foundation/Foundation.h>
+#import "cocos2d.h"
+#import "Box2D.h"
+
+#define PTM_RATIO 32.0
+
+@interface Wall : CCNode {
+    CGPoint posX;
+    CGPoint posY;
+    CGPoint anchor;
+    CGPoint myPointAroundTheCircleOne;
+    CGPoint myPointAroundTheCircleTwo;
+    float disTime;
+    float disStart;
+    float disFreq;
+    float inactveTime;
+    float inactiveAfter;
+    float rotSpeed;
+    float rotRadiusOne;
+    float rotRadiusTwo;
+    float rotAngleOne;
+    float rotAngleTwo;
+    float rotAngleBody;
+    
+    BOOL visible;
+    BOOL invisibleWall;
+    BOOL dissapear;
+    BOOL wall;
+    BOOL currentlyDisappeared;
+    BOOL disappearingBegun;
+    BOOL active;
+    BOOL turnInactive;
+    BOOL reActivate;
+    BOOL rotating;
+    
+    float timeToNextDisappear;
+    float timeToReappear;
+    
+    b2PolygonShape *groundBoxWall;
+    b2FixtureDef *boxShapeDefWall;
+    b2Fixture *wallFixture;
+    b2Body *wallBody;
+}
+
+-(id) initWithVariables:(CGPoint)posXPT posY:(CGPoint) posYPT dissappear:(BOOL)disWall disTime:(float)disTimeF disStart:(float)disStartF disFreq:(float) disFreqF box:(b2PolygonShape*) boxWall shapeDef:(b2FixtureDef*) boxDef fixture:(b2Fixture*) wallFix invisWall:(BOOL) invis inactiveTime:(float) inactive inactiveAfter:(float) inactiveAfterTime anchor:(CGPoint) anchorPoint rotSpeed:(float)rotateSpeed wallBody:(b2Body*) body;
+
+-(CGPoint) xPoint;
+
+-(CGPoint) yPoint;
+
+-(BOOL) isVisible;
+
+-(void) turnOff:(b2Body*) body;
+
+-(void) turnOn:(b2Body*) body;
+
+-(BOOL) disappearing;
+
+-(float) disStartTime;
+
+-(float) disTime;
+
+-(float) disFreq;
+
+-(void) decreaseInactive:(float) dt b2body:(b2Body*) body;
+
+-(BOOL) decreaseInactiveAfter:(float) dt b2body:(b2Body*) body;
+
+-(BOOL) getCurrentlyDisappeared;
+
+-(float) getTimeToNextDisappear;
+
+-(float) getTimeToReappear;
+
+-(void) decreaseTimeToDisappear:(float) dt;
+
+-(void) setCurrentlyDisappeared:(BOOL) dis;
+
+-(BOOL) getActiveDisappear;
+
+-(void) setInitialDisappear;
+
+-(void) setTimeToNextDisappear:(float) time;
+
+-(void) setTimeToReappear:(float) time;
+
+-(BOOL) disBegun;
+
+-(BOOL) isActive;
+
+-(void) decreaseTimeToReappear:(float) dt;
+
+-(BOOL) isInvisible;
+
+-(void)move:(float) dt world:(b2Body*) body;
+
+-(void) endLife;
+
+@end

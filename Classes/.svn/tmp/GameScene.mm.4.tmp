@@ -1,0 +1,763 @@
+//
+//  HelloWorldScene.m
+//  Cocos2DBall
+//
+//  Created by Ray Wenderlich on 2/17/10.
+//  Copyright 2010 Ray Wenderlich. All rights reserved.
+//
+
+#import "GameScene.h"
+#import "CCTouchDispatcher.h"
+#import "CCLabelTTF.h"
+#import	"FireBall.h"
+#import	"Coin.h"
+#import "MenuScene.h"
+#import "PauseScene.h"
+#import "GameOverScene.h"
+#import "LevelOverScene.h"
+#import "LevelWonScene.h"
+
+#define PTM_RATIO 32.0
+#define WALL_X 40
+#define WALL_Y 4
+
+@implementation Game
+
++ (id)scene {
+    CCScene *scene = [CCScene node];
+    Game *layer = [Game node];
+    [scene addChild:layer];
+    return scene;
+    
+}
+
+- (b2Body *)addBall:(CGPoint)position {
+    
+    // Create sprite and add it to the layer
+    CCSprite *ball;
+    ball = [CCSprite spriteWithFile:@"Sphere.png" rect:CGRectMake(0, 0, 25, 25)];
+    ball.position = position;
+    [self addChild:ball];
+    
+    // Create ball body and shape
+    b2BodyDef ballBodyDef;
+    ballBodyDef.type = b2_dynamicBody;
+    ballBodyDef.position.Set(position.x/PTM_RATIO, position.y/PTM_RATIO);
+    ballBodyDef.userData = ball;
+    b2Body *body = _world->CreateBody(&ballBodyDef);
+    
+    b2CircleShape circle;
+    circle.m_radius = 12.5/PTM_RATIO;
+    
+    b2FixtureDef ballShapeDef;
+    ballShapeDef.shape = &circle;
+    ballShapeDef.density = 1.0f;
+    ballShapeDef.friction = 0.0f;
+    ballShapeDef.restitution = 0.0f;
+    body->CreateFixture(&ballShapeDef);
+    
+    return body;
+}
+
+#define BALLSPEED 400
+#define MAXSPEED 70
+
+- (void)accelerometer:(UIAccelerometer *)accelerometer didAccelerate:(UIAcceleration *)acceleration {
+    
+    float x, y;
+    
+    if(acceleration.x > 0.08)           // tilting the device upwards
+    {   
+		//NSLog (@"works x+");
+        x = -acceleration.y * BALLSPEED;
+        y = acceleration.x * BALLSPEED;
+    } 
+    else if (acceleration.x < -0.08)    // tilting the device downwards
+    {  
+		//NSLog (@"works x-");
+        x = -acceleration.y * BALLSPEED;
+        y = acceleration.x * BALLSPEED;
+    } 
+    else if(acceleration.y < -0.08)     // tilting the device to the right 
+    {  
+		//NSLog (@"works y-");
+        x = -acceleration.y * BALLSPEED;
+        y = acceleration.x * BALLSPEED;
+    } 
+    else if (acceleration.y > 0.08)     // tilting the device to the left
+    {  
+		//NSLog (@"works y+");
+        x = -acceleration.y * BALLSPEED;
+        y = acceleration.x * BALLSPEED;
+    }
+    
+    
+    if (x > MAXSPEED)
+        x = MAXSPEED;
+    if (y > MAXSPEED)
+        y = MAXSPEED;
+    if (x < -MAXSPEED)
+        x = -MAXSPEED;
+    if (y < -MAXSPEED)
+        y = -MAXSPEED;
+    
+    b2Vec2 gravity(x, y);
+    //_world->SetGravity(gravity);
+    playerS->ApplyForce(gravity, playerS->GetWorldCenter());
+}
+
+
+-(void) addWall:(b2PolygonShape&) box 
+           posX:(CGPoint) posX
+           posY:(CGPoint) posY
+            def:(b2FixtureDef) def
+           body:(b2Body*&) body
+{
+    b2Vec2 vertex = b2Vec2(posX.x/PTM_RATIO, posX.y/PTM_RATIO);
+    b2Vec2 vertex2 = b2Vec2(posY.x/PTM_RATIO, posY.y/PTM_RATIO);
+    
+    //posX.y -= WALL_Y/2;
+    //posY.y += WALL_Y/2;
+    
+    wallx.push_back(posX);
+    wally.push_back(posY);
+    
+    box.SetAsEdge(vertex, vertex2);
+    body->CreateFixture(&def);
+}
+
+-(void) initWorld:(int) levelNum
+{
+    b2Vec2 gravity = b2Vec2(0.0f, 0.0f);
+    bool doSleep = true;
+    _world = new b2World(gravity, doSleep);
+    
+    // Create edges around the entire screen
+    b2BodyDef groundBodyDef;
+    groundBodyDef.position.Set(0,0);
+    b2Body *groundBody = _world->CreateBody(&groundBodyDef);
+    b2PolygonShape groundBox;
+    b2FixtureDef boxShapeDef;
+    boxShapeDef.shape = &groundBox;
+    groundBox.SetAsEdge(b2Vec2(0,0), b2Vec2(screenSize.width/PTM_RATIO, 0));
+    groundBody->CreateFixture(&boxShapeDef);
+    groundBox.SetAsEdge(b2Vec2(0,0), b2Vec2(0, screenSize.height/PTM_RATIO));
+    groundBody->CreateFixture(&boxShapeDef);
+    groundBox.SetAsEdge(b2Vec2(0, screenSize.height/PTM_RATIO), 
+                        b2Vec2(screenSize.width/PTM_RATIO, screenSize.height/PTM_RATIO));
+    groundBody->CreateFixture(&boxShapeDef);
+    groundBox.SetAsEdge(b2Vec2(screenSize.width/PTM_RATIO, screenSize.height/PTM_RATIO), 
+                        b2Vec2(screenSize.width/PTM_RATIO, 0));
+    groundBody->CreateFixture(&boxShapeDef);
+    
+    initialX = screenSize.width/2;
+    initialY = screenSize.height/2;
+    
+    NSMutableArray * levels = [MenuScene getLevels];
+    if(levels)
+    {
+        unsigned int curLevelChoice = levelNum;
+        if(curLevelChoice > [levels count] - 1) curLevelChoice = 0;
+        Level * currentLevel = [levels objectAtIndex:curLevelChoice];
+
+        vector<CGPoint> wallStarts = [currentLevel getWallStarts];
+        vector<CGPoint> wallEnds = [currentLevel getWallEnds];
+    
+        for (unsigned int i = 0; i < wallStarts.size(); i++) {
+            [self addWall:groundBox posX:wallStarts.at(i) posY:wallEnds.at(i) def:boxShapeDef body:groundBody];
+        }
+        
+        if(curMode == LEVEL)
+        {
+            coins = [[[NSMutableArray alloc] initWithObjects:nil] retain];
+            NSMutableArray* coinsToCopy = [currentLevel getCoins];
+            for(Coin* curCoin in coinsToCopy)
+            {
+                Coin* newCoin = [[[Coin node] initWithVariables:[curCoin getStartTime] 
+                                                       duration:[curCoin getEndTime]-[curCoin getStartTime] 
+                                                           posX:[curCoin getXPos]
+                                                           posY:[curCoin getYPos]
+                                                         points:2] retain];
+                [coins addObject:newCoin];
+            }
+            
+<<<<<<< .mine
+=======
+            NSLog(@"starting powerup shit");
+
+            powerups = [[[NSMutableArray alloc] initWithObjects:nil] retain];
+            NSMutableArray* powerupsToCopy = [currentLevel getPowerups];
+            for(Powerup* curPowerup in powerupsToCopy)
+            {
+                NSString* type = [curPowerup getType];
+                if ([type isEqualToString:@"TimeSlow"])
+                {    
+                    NSLog(@"added time slow powerup");
+
+                    Powerup* newPowerup = [[[Powerup node] initWithData:[curPowerup getType] 
+                                                               setStart:[curPowerup getStartTime] 
+                                                            setDuration:[curPowerup getDuration] 
+                                                                   setX:[curPowerup getX] 
+                                                                   setY:[curPowerup getY] 
+                                                             activeTime:[curPowerup getActiveTime] 
+                                                             slowFactor:[curPowerup getSlowFactor]] retain];
+                    [powerups addObject:newPowerup];
+                }
+                else if ([type isEqualToString:@"Invincible"])
+                {
+                    NSLog(@"added time slow powerup");
+
+                    Powerup* newPowerup = [[[Powerup node] initWithData:[curPowerup getType] 
+                                                               setStart:[curPowerup getStartTime] 
+                                                            setDuration:[curPowerup getDuration] 
+                                                                   setX:[curPowerup getX] 
+                                                                   setY:[curPowerup getY] 
+                                                             activeTime:[curPowerup getActiveTime]] retain];
+                    [powerups addObject:newPowerup];
+                }
+                else if ([type isEqualToString:@"Destroy"])
+                {
+                    NSLog(@"added time slow powerup");
+
+                    Powerup* newPowerup = [[[Powerup node] initWithData:[curPowerup getType] 
+                                                               setStart:[curPowerup getStartTime] 
+                                                            setDuration:[curPowerup getDuration] 
+                                                                   setX:[curPowerup getX] 
+                                                                   setY:[curPowerup getY] 
+                                                             destroyCount:[curPowerup getDestroyCount]] retain];
+                    [powerups addObject:newPowerup];
+                }
+            }
+            
+>>>>>>> .r32
+            [currentLevel setPlayerLoc:&initialX yLoc:&initialY];
+            [currentLevel setCoinsNeeded:&coinsNeeded];
+            [currentLevel setFireballs:&spawnDuration speedIncrease:&fireBallSpeedIncrease startSpeed:&fireBallStartSpeed 
+                              speedCap:&fireBallSpeedCap
+                           fireballCap:&fireBallCap];
+			time_limit = [currentLevel getTotalTime];
+        }
+    }
+    
+    playerS = [self addBall:ccp(initialX, initialY)];
+    
+}
+
+// on "init" you need to initialize your instance
+-(id) initWithGameDifficulty:(enum GameDifficulty) difficulty setMode:(enum GameMode) mode levelNum:(int) levelNum
+{
+	// always call "super" init
+	// Apple recommends to re-assign "self" with the "super" return value
+	if( (self=[super init] ) != nil) {
+		gameOver = NO;
+		gameRunning = NO;
+        
+		[UIApplication sharedApplication].idleTimerDisabled = YES;
+		
+		fireBalls = [[NSMutableArray alloc] initWithObjects:nil];
+        slowFactor = 1.0f;
+        playerInvincible = false;
+		
+		screenSize = [[CCDirector sharedDirector] winSize];
+		
+		curDiff = difficulty;
+		curMode = mode;
+        curLevel = levelNum;
+
+        coinsCollected = 0;
+        
+        game_time = 0.0f;
+		coin_time = 0.0f;
+		initial_pause = 0.0f;
+        slowTime = 0.0f;
+        invincibleTime = 0.0f;
+        destroyTime = 0.0f;
+		
+        if(curMode == SURVIVAL)
+        {
+            switch (curDiff) {
+                case EASY:
+                    spawnDuration = 30.0f;
+                    fireBallSpeedIncrease = 3.33f;
+                    fireBallStartSpeed = 100.0f;
+                    break;
+                case MEDIUM:
+                    spawnDuration = 20.0f;
+                    fireBallSpeedIncrease = 6.66f;
+                    fireBallStartSpeed = 100.0f;
+                    break;
+                case HARD:
+                    spawnDuration = 10.0f;
+                    fireBallSpeedIncrease = 10.0f;
+                    fireBallStartSpeed = 100.0f;
+                    break;
+                case EXTREME:
+                    spawnDuration = 3.0f;
+                    fireBallSpeedIncrease = 50.0f;
+                    fireBallStartSpeed = 500.0f;
+                    break;
+                default:
+                    break;
+            }
+        }
+        
+        [self initWorld:curLevel];
+        
+        spawn_time = spawnDuration + 1.0f;
+        
+		timer = [CCLabelTTF labelWithString: @"0:00" fontName:@"Futura" fontSize:16];
+		timer.position = ccp(35, screenSize.height - 10);
+		[self addChild:timer];
+        
+        if (curMode == LEVEL)
+        {
+            totalCoins = [coins count];
+            NSString *lbl = [NSString stringWithFormat:@"Coins: %i/%i", coinsCollected, totalCoins];
+            coinCount = [CCLabelTTF labelWithString:lbl fontName:@"Futura" fontSize:16];
+            coinCount.position = ccp(screenSize.width - 50, screenSize.height - 10);
+            [self addChild:coinCount];
+        }
+        
+        [CCMenuItemFont setFontSize:24];
+		CCMenuItemFont *menuItem1 = [CCMenuItemFont itemFromString:@"||" target:self selector:@selector(onPause:)];
+        [CCMenuItemFont setFontSize:32];
+        
+		CCMenu *menu = [CCMenu menuWithItems:menuItem1, nil];
+		menu.position = ccp(20,20);
+		[self addChild:menu];
+		
+		// schedule a repeating callback on every frame
+        [self schedule:@selector(update:)];
+        
+		self.isTouchEnabled = YES;
+		self.isAccelerometerEnabled = YES;
+	}
+	return self;
+}
+
+- (void)draw {
+	// ...
+	
+	// draw a simple line
+	// The default state is:
+	// Line Width: 1
+	// color: 255,255,255,255 (white, non-transparent)
+	// Anti-Aliased
+	
+	glEnable(GL_LINE_SMOOTH);
+    
+	glColor4f(0.0, 0.0, 1.0, 0.0);  
+    glLineWidth(0.01f);
+	for (int i = 0; i <= screenSize.width; i +=20)
+	{
+		ccDrawLine( ccp(i, 0), ccp(i, screenSize.height) );
+	}
+	for (int j = 0; j <= screenSize.height; j += 20)
+	{
+		ccDrawLine( ccp(0, j), ccp(screenSize.width, j) );
+	}
+	
+    glColor4f(1.0, 0.0, 0.0, 0.0);  
+    glLineWidth(3.0f);
+    
+    for (unsigned int i = 0; i < wallx.size(); i++)
+        ccDrawLine(wallx[i], wally[i]);
+    if (curMode == LEVEL) {
+		float time_left = time_limit - game_time;
+		minutes = time_left / 60;
+		seconds = (int) time_left % 60;
+		milliseconds = (int) (time_left * 100) % 100;
+	}
+	else {
+		minutes = game_time / 60;
+		seconds = (int) game_time % 60;
+		milliseconds = (int) (game_time * 100) % 100;
+	}
+	
+	if (seconds < 10)
+	{	
+		if (milliseconds < 10)
+			[timer setString:[NSString stringWithFormat:@"%i:0%i.0%i", minutes, seconds, milliseconds]];
+		else
+			[timer setString:[NSString stringWithFormat:@"%i:0%i.%i", minutes, seconds, milliseconds]];
+	}
+	else
+	{	
+		if (milliseconds < 10)
+			[timer setString:[NSString stringWithFormat:@"%i:%i.0%i", minutes, seconds, milliseconds]];
+		else
+			[timer setString:[NSString stringWithFormat:@"%i:%i.%i", minutes, seconds, milliseconds]];
+	}
+    
+    if (curMode == LEVEL)
+        [coinCount setString:[NSString stringWithFormat:@"Energy: %i/%i", coinsCollected, totalCoins]];
+}
+
+- (void) update:(ccTime)dt {
+	initial_pause += dt;
+	if(initial_pause > 2.0f && !gameRunning) 
+    {
+        gameRunning = YES;
+        game_time = 0.0f;
+    }
+	if(gameRunning)
+	{
+		game_time += dt;
+		spawn_time += dt;
+		coin_time += dt;
+        
+        //if(curMode == LEVEL && game_time > end_time) [self endGame];
+		
+        _world->Step(dt, 10, 10);
+        
+        CCSprite *ballData;
+        
+        for(b2Body *b = _world->GetBodyList(); b; b=b->GetNext()) {    
+            if (b->GetType() == b2_dynamicBody) {
+                ballData = (CCSprite *)b->GetUserData();
+                ballData.position = ccp(b->GetPosition().x * PTM_RATIO,
+                                        b->GetPosition().y * PTM_RATIO);
+                //ballData.rotation = -1 * CC_RADIANS_TO_DEGREES(b->GetAngle());
+            }
+        }
+        
+		//check for player collisions (CNode)
+		for (FireBall *curFireBall in fireBalls)
+		{
+			if ([curFireBall getIsAlive]) {
+				float fPlayerToFireball = sqrt(pow(fabs(ballData.position.x - [curFireBall getXPos]), 2) 
+											   + pow(fabs(ballData.position.y - [curFireBall getYPos]), 2));
+				
+				if(fPlayerToFireball < (playerS->GetFixtureList()->GetShape()->m_radius 
+										+ [[curFireBall getSprite] boundingBox].size.width/2))
+				{
+					//player hit fireball
+                    if (playerDestroy)
+                    {
+                        [self removeChild:[curFireBall getSprite] cleanup:NO];
+                        [fireBalls removeObject:curFireBall];
+                    }
+					else if(!playerInvincible) [self endGame];
+				}
+			}
+		}
+		
+        
+        // update coins
+        if(curMode == LEVEL){
+            for (Coin *curCoin in coins)
+            {
+                if([curCoin isActive])
+                {
+					[curCoin updateLifetime:dt];
+                    float fPlayerToCoin = sqrt(pow(fabs(ballData.position.x - [curCoin getXPos]), 2) 
+                                           + pow(fabs(ballData.position.y - [curCoin getYPos]), 2));
+            
+                    if(fPlayerToCoin < (playerS->GetFixtureList()->GetShape()->m_radius 
+                                    + [[curCoin getSprite] boundingBox].size.width)
+									// The coin must be fully faded in to be picked up by the player
+									&& [curCoin getLifetime] > ([curCoin getFadeInTime] + 0.05))
+                    {
+                        //player got a coin
+                        coinsCollected ++;
+                        [self removeChild:[curCoin getSprite] cleanup:NO];
+                        [coins removeObject:curCoin];
+                        
+                        //IF COLLECTS LAST COIN CALL END GAME
+                        if([coins count] == 0) [self endGame];
+                    }
+                    else if ([curCoin getEndTime] < game_time)
+                    {    
+                        [self removeChild:[curCoin getSprite] cleanup:NO];
+                        [coins removeObject:curCoin];
+                        if([coins count] == 0) [self endGame];
+                    }
+                }
+
+				// Take into account the fade in time and activate the coin early (it still can't be picked up until fade is done)
+                float startingTime = [curCoin getStartTime] - [curCoin getFadeInTime];
+                if(startingTime <= game_time && ![curCoin isActive])
+                {
+                    [curCoin activate];
+                    [self addChild:[curCoin getSprite] z:-1];
+					[curCoin fadeIn];
+                }
+            }
+            
+            
+            for (Powerup *curPowerup in powerups)
+            {
+                if([curPowerup isActive])
+                {
+                    float fPlayerToPU = sqrt(pow(fabs(ballData.position.x - [curPowerup getX]), 2) 
+                                               + pow(fabs(ballData.position.y - [curPowerup getY]), 2));
+                    
+                    if(fPlayerToPU < (playerS->GetFixtureList()->GetShape()->m_radius 
+                                        + [[curPowerup getSprite] boundingBox].size.width))
+                    {
+                        if ([[curPowerup getType] isEqualToString:@"TimeSlow"])
+                        {
+                            playerSlowTime = true;
+                            slowTime = game_time + [curPowerup getDuration];
+                            slowFactor = [curPowerup getSlowFactor];
+                        }
+                        else if ([[curPowerup getType] isEqualToString:@"Invincible"])
+                        {
+                            playerInvincible = true;
+                            invincibleTime = game_time + [curPowerup getDuration];
+                        }
+                        else if ([[curPowerup getType] isEqualToString:@"Destroy"])
+                        {
+                            playerDestroy = true;
+                            destroyTime = game_time + [curPowerup getDuration];
+                        }
+                        
+                        [powerups removeObject:curPowerup];
+                    }
+                    else if ([curPowerup getDuration] + [curPowerup getStartTime] < game_time)
+                    {    
+                        [powerups removeObject:curPowerup];
+                    }
+                }
+                
+                float startingTime = [curPowerup getStartTime];
+                if(startingTime <= game_time && ![curPowerup isActive])
+                {
+                    [curPowerup activate];
+                    [self addChild:[curPowerup getSprite]];
+                }
+            }
+            
+            if (slowTime < game_time)
+            {
+                slowFactor = 1;
+                playerSlowTime = false;
+            }
+            if (invincibleTime < game_time)
+            {
+                playerInvincible = false;
+            }
+            if (destroyTime < game_time)
+            {
+                playerDestroy = false;
+            }
+        }
+		
+        
+        
+		//UPDATE FIREBALLS
+		float curX = 0.0f;
+		float curY = 0.0f;
+		
+		for (FireBall *curFireBall in fireBalls)
+		{
+			[curFireBall updateLifetime:dt];
+			BOOL m_bCollided = NO;
+			curX = [curFireBall getXPos];
+			curY = [curFireBall getYPos];
+			
+			[curFireBall movePos:dt/slowFactor];
+			
+			//update speed
+			if(curMode == SURVIVAL || (curMode == LEVEL && [curFireBall getSpeed] < fireBallSpeedCap)){
+                [curFireBall addSpeed:dt*fireBallSpeedIncrease];
+			}
+            
+			CCSprite *curSprite = [curFireBall getSprite];
+			float fSpriteWidth = [curSprite boundingBox].size.width;
+			float fSpriteHeight = [curSprite boundingBox].size.height;
+            float spriteOffset = 5.0f;
+			
+			//if pos.x > 480 - size/2, hits right
+			if(curSprite.position.x > screenSize.width - fSpriteWidth/2 + spriteOffset)
+			{
+				float curAngle = [curFireBall getAngle];
+				float newAngle = 0.0f;
+				if(curAngle > 0.0f) newAngle = (1.57 - curAngle) + 1.57;
+				if(curAngle <= 0.0f) newAngle = -1.57 - (1.57 + curAngle);
+				[curFireBall setAngle:newAngle];
+				m_bCollided = YES;
+			}
+			//if pos.x < 0 + size/2, hits left
+			if(curSprite.position.x < fSpriteWidth/2 - spriteOffset)
+			{
+				float curAngle = [curFireBall getAngle];
+				float newAngle = 0.0f;
+				if(curAngle > 0.0f) newAngle = 1.57 - (curAngle - 1.57);
+				if(curAngle <= 0.0f) newAngle = -1.57 - (curAngle + 1.57);
+				[curFireBall setAngle:newAngle];
+				m_bCollided = YES;
+			}
+			//if pos.y > 320 - size/2, hits top
+			if(curSprite.position.y > screenSize.height - fSpriteHeight/2 + spriteOffset)
+			{
+				[curFireBall setAngle:-[curFireBall getAngle]];
+				m_bCollided = YES;
+			}
+			//if pos.y < 0 + size/2, hits bottom
+			if(curSprite.position.y < fSpriteHeight/2 - spriteOffset)
+			{
+				[curFireBall setAngle:-[curFireBall getAngle]];
+				m_bCollided = YES;
+			}
+			
+			if(m_bCollided) [curFireBall setPos:curX setYPos:curY];
+		}
+        
+		
+		//if time is past certain amount, add a fireball
+		if(spawn_time > spawnDuration)
+		{
+			spawn_time = 0.0f;
+            if(curMode == SURVIVAL || (curMode == LEVEL && [fireBalls count] < fireBallCap)){
+                [self createFireball];
+            }
+        }
+	}
+}
+
+-(void) addCoin:(float) m_initTime dur:(float) m_duration
+{
+	Coin *newCoin = [Coin node];
+	
+	//check for collision with user, if so reset initial fireball pos
+	float fPlayerToCoin = sqrt(pow(fabs(playerS->GetPosition().x - [newCoin getXPos]), 2) 
+                                   + pow(fabs(playerS->GetPosition().y - [newCoin getYPos]), 2));
+
+	while(fPlayerToCoin < 200)
+	{
+		[newCoin resetRandomPos];
+		fPlayerToCoin = sqrt(pow(fabs(playerS->GetPosition().x - [newCoin getXPos]), 2) 
+                                 + pow(fabs(playerS->GetPosition().y - [newCoin getYPos]), 2));
+	}
+
+	[coins addObject:newCoin];
+	[newCoin setTime:m_initTime setDuration:m_duration];
+
+	[self addChild:[newCoin getSprite]];
+}
+
+-(void) createFireball
+{
+	FireBall *newFireball = [FireBall node];
+	
+	//check for collision with user, if so reset initial fireball pos
+	float fPlayerToFireball = sqrt(pow(fabs(playerS->GetPosition().x - [newFireball getXPos]), 2) 
+                                   + pow(fabs(playerS->GetPosition().y - [newFireball getYPos]), 2));
+	while(fPlayerToFireball < 175 /*[playerS boundingBox].size.width/2 + [[newFireball getSprite] boundingBox].size.width/2*/)
+	{
+		[newFireball resetRandomPos];
+		fPlayerToFireball = sqrt(pow(fabs(playerS->GetPosition().x - [newFireball getXPos]), 2) 
+                                 + pow(fabs(playerS->GetPosition().y - [newFireball getYPos]), 2));
+	}
+	
+	[fireBalls addObject:newFireball];
+	[newFireball addSpeed:fireBallStartSpeed];
+	
+	float fFireBallAngle = atan(([newFireball getYPos] - playerS->GetPosition().y)/
+                                ([newFireball getXPos] - playerS->GetPosition().x));
+	if(playerS->GetPosition().x < [newFireball getXPos]) fFireBallAngle += 3.14;
+	[newFireball setAngle:fFireBallAngle];
+	
+	[self addChild:[newFireball getSprite]];
+	[newFireball fadeIn];
+}
+
+-(void) endGame
+{	
+    if(curMode == LEVEL)
+    {
+        if(coinsCollected >= coinsNeeded)
+        {
+            [[CCDirector sharedDirector] replaceScene:[[LevelWonScene node] initWithInfo:coinsCollected setLevel:curLevel]];
+        } else {
+            [[CCDirector sharedDirector] replaceScene:[[LevelOverScene node] initWithInfo:coinsCollected setLevel:curLevel]];
+        }
+    } else {
+        switch (curDiff) {
+            case EASY:
+                [self writeHighscore:@"easy"];
+                break;
+            case MEDIUM:
+                [self writeHighscore:@"medium"];
+                break;
+            case HARD:
+                [self writeHighscore:@"hard"];
+                break;
+            case EXTREME:
+                [self writeHighscore:@"extreme"];
+                break;
+            default:
+                break;
+        }
+        [[CCDirector sharedDirector] replaceScene:[[GameOverScene node] initWithScore:game_time setDifficulty:curDiff setMode:curMode setLevel:curLevel]];
+    }
+	
+	//pause and display score?
+    
+	//[[CCDirector sharedDirector] pushScene:[MenuScene node]];
+	//[[CCDirector sharedDirector] replaceScene:[MenuScene node]];
+}
+
+-(void) writeHighscore:(NSString *) mode
+{
+	//load scores
+	NSString *score1 = [mode stringByAppendingString:[NSString stringWithFormat:@"%i", 1]];
+	NSString *score2 = [mode stringByAppendingString:[NSString stringWithFormat:@"%i", 2]];
+	NSString *score3 = [mode stringByAppendingString:[NSString stringWithFormat:@"%i", 3]];
+	float num1 = [[NSUserDefaults standardUserDefaults] floatForKey:score1];
+	float num2 = [[NSUserDefaults standardUserDefaults] floatForKey:score2];
+	float num3 = [[NSUserDefaults standardUserDefaults] floatForKey:score3];
+	
+	//if this far, all 3 full, modify
+	if(game_time > num1)
+	{
+		[[NSUserDefaults standardUserDefaults] setFloat:num2 forKey:score3];
+		[[NSUserDefaults standardUserDefaults] setFloat:num1 forKey:score2];
+		[[NSUserDefaults standardUserDefaults] setFloat:game_time forKey:score1];
+		[[NSUserDefaults standardUserDefaults] synchronize];
+	}
+	else if (game_time > num2)
+	{
+		[[NSUserDefaults standardUserDefaults] setFloat:num2 forKey:score3];
+		[[NSUserDefaults standardUserDefaults] setFloat:game_time forKey:score2];
+		[[NSUserDefaults standardUserDefaults] synchronize];
+	}
+	else if(game_time > num3)
+	{
+		[[NSUserDefaults standardUserDefaults] setFloat:game_time forKey:score3];
+		[[NSUserDefaults standardUserDefaults] synchronize];
+	}
+}
+
+- (void)onPause:(id)sender
+{
+	NSLog(@"on pause");
+	[[CCDirector sharedDirector] pushScene:[[PauseScene node] initWithInfo:curDiff setMode:curMode setLevel:curLevel]];
+
+}
+
+- (BOOL)ccTouchBegan:(UITouch *)touch withEvent:(UIEvent *)event {
+    return YES;
+}
+
+- (void)ccTouchEnded:(UITouch *)touch withEvent:(UIEvent *)event {
+	//CGPoint location = [self convertTouchToNodeSpace: touch];
+	//[playerBall stopAllActions];
+	//[playerBall runAction: [CCMoveTo actionWithDuration:1 position:location]];
+}
+
+-(void) registerWithTouchDispatcher
+{
+	[[CCTouchDispatcher sharedDispatcher] addTargetedDelegate:self priority:0 swallowsTouches:YES];
+}
+
+- (void)dealloc {
+    
+    delete _world;
+    _world = NULL;
+    [super dealloc];
+    
+}
+
+@end

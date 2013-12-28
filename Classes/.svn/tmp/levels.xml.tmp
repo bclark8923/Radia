@@ -1,0 +1,63 @@
+<Levels number="1">
+    <Level number="0" limit="300" onestar="4" twostar="6" threestar="8">
+        <Player x="240" y="160" lives="3"/>
+        <Walls>
+            <wall x1="0" y1="70" x2="70" y2="0" />
+            <wall x1="0" y1="250" x2="70" y2="320" />
+            <wall x1="480" y1="70" x2="410" y2="0" />
+            <wall x1="480" y1="250" x2="410" y2="320" />
+        </Walls>
+    </Level>
+    <Level number="1" limit="52" onestar="2" twostar="6" threestar="8">
+        <Player x="240" y="160" lives="3"/>
+        <Walls>
+            <wall x1="0" y1="70" x2="70" y2="0" />
+            <wall x1="0" y1="250" x2="70" y2="320" />
+            <wall x1="480" y1="70" x2="410" y2="0" />
+            <wall x1="480" y1="250" x2="410" y2="320" />
+        </Walls>
+        <Coins>
+            <coin time="2" duration="5" x="100" y="240" points="2"/>
+            <coin time="9" duration="5" x="300" y="50" points="2"/>
+            <coin time="15" duration="5" x="140" y="200" points="2"/>
+            <coin time="24" duration="5" x="40" y="200" points="2"/>
+            <coin time="29" duration="5" x="380" y="120" points="2"/>
+            <coin time="32" duration="5" x="380" y="160" points="2"/>
+            <coin time="40" duration="5" x="20" y="150" points="2"/>
+            <coin time="47" duration="5" x="120" y="250" points="2"/>
+        </Coins>
+        <Fireballs spawntime="5" cap="3" speedincrease="10" speedcap="200" startspeed="100"/>
+    </Level>  
+    <Level number="2" limit="20" onestar="1" twostar="2" threestar="3">
+        <Player x="240" y="160" lives="3"/>
+        <Coins>
+            <coin time="1" duration="5" x="240" y="160" points="2"/>
+            <coin time="9" duration="5" x="300" y="50" points="2"/>
+            <coin time="15" duration="5" x="140" y="200" points="2"/>
+        </Coins>
+        <Powerups>
+            <powerup type="TimeSlow" time="5" duration="5" x="10" y="20" active="5" slowfactor="2"/>
+            <powerup type="Invincible" time="15" duration="1" x="10" y="20" active="5"/>
+            <powerup type="TimeSlow" time="10" duration="5" x="10" y="20" active="5" slowfactor="2"/>
+            <powerup type="Destroy" time="18" duration="2" x="70" y="100" num="1"/>
+        </Powerups>
+        <Fireballs spawntime="15" cap="1" speedincrease="3" speedcap="100" startspeed="50"/>
+    </Level>  
+    <Level number="3" limit="40" onestar="2" twostar="4" threestar="6">
+        <Player x="240" y="160" lives="3"/>
+        <Walls>
+            <wall x1="0" y1="250" x2="70" y2="320" />
+            <wall x1="480" y1="70" x2="410" y2="0" />
+            <wall x1="480" y1="250" x2="410" y2="320" />
+        </Walls>
+        <Coins>
+            <coin time="3" duration="5" x="180" y="80" points="2"/>
+            <coin time="10" duration="5" x="310" y="250" points="2"/>
+            <coin time="14" duration="6" x="120" y="120" points="2"/>
+            <coin time="22" duration="5" x="280" y="50" points="2"/>
+            <coin time="29" duration="5" x="90" y="300" points="2"/>
+            <coin time="34" duration="6" x="250" y="190" points="2"/>
+        </Coins>
+        <Fireballs spawntime="9" cap="3" speedincrease="5" speedcap="200" startspeed="50"/>
+    </Level>
+</Levels>

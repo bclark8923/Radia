@@ -1,0 +1,129 @@
+//
+//  WorldSelect.m
+//  Fireballin
+//
+//  Created by Brian Clark on 4/8/11.
+//  Copyright 2011 U of Michigan. All rights reserved.
+//
+
+#import "WorldSelect.h"
+#import "LevelSelect.h"
+#import "MenuScene.h"
+#import "cocos2d.h"
+#import "SlidingMenuGrid.h"
+
+@implementation WorldSelect
+
++(id) scene
+{
+	// 'scene' is an autorelease object.
+	CCScene *scene = [CCScene node];
+	
+	// 'layer' is an autorelease object.
+	WorldSelect *layer = [WorldSelect node];
+	
+	// add layer as a child to scene
+	[scene addChild: layer];
+	
+	// return the scene
+	return scene;
+}
+
+- (id) init
+{
+	if( (self=[super init] )) {
+		screenSize = [[CCDirector sharedDirector] winSize];
+        
+        //self.anchorPoint = CGPointZero;
+		//self.position = CGPointZero;
+		
+		id target = self;
+        int iMaxWorlds = ceil(([levels count] - 1)/10.0f);
+		iMaxWorlds = 2;
+		
+		NSMutableArray* allItems = [NSMutableArray arrayWithCapacity:51];
+		int max_unlocked = 1;
+		int sprite_size = 0;
+		for (int i = 1; i <= iMaxWorlds; ++i)
+		{
+			// create a menu item for each character
+			NSString* image = [NSString stringWithFormat:@"WorldLocked"];
+			NSString* level_string = [NSString stringWithFormat:@"%i", 1+10*(i-1)];
+			NSString* lock_key_string = [level_string stringByAppendingString:@"Lock"];
+			int lock_val = [[NSUserDefaults standardUserDefaults] floatForKey:lock_key_string];
+			if (lock_val == 0) {
+				image = [NSString stringWithFormat:@"WorldLocked"];
+			}
+			else {
+<<<<<<< .mine
+                NSString* world_string = [NSString stringWithFormat:@"World"];
+                NSString* icon_text = [world_string stringByAppendingFormat:@"%i", i];
+				image = [NSString stringWithFormat:icon_text];
+=======
+				image = [NSString stringWithFormat:@"WorldTemplate"];
+>>>>>>> .r31
+				max_unlocked++;
+			}
+			
+			NSString* normalImage = [NSString stringWithFormat:@"%@.png", image];
+			NSString* selectedImage = [NSString stringWithFormat:@"%@.png", image];
+			CCSprite* normalSprite = [CCSprite spriteWithFile:normalImage];
+			CCSprite* selectedSprite = [CCSprite spriteWithFile:selectedImage];
+			
+			// If it's unlocked it can be selected, if not it gets a dummy selector
+			CCMenuItemSprite* item;
+			if ([image isEqualToString: @"WorldLocked"]) {
+				item =[CCMenuItemSprite itemFromNormalSprite:normalSprite selectedSprite:selectedSprite target:self selector:@selector(Dummy:)];
+			}
+			else {
+				item =[CCMenuItemSprite itemFromNormalSprite:normalSprite selectedSprite:selectedSprite target:target selector:@selector(SelectWorld:)];
+			}
+			
+			sprite_size = item.scaleX;
+			item.tag = i;
+			[allItems addObject:item];
+		}
+		
+		SlidingMenuGrid* menuGrid = [SlidingMenuGrid menuWithArray:allItems cols:1 rows:1 position:CGPointMake(screenSize.width/2 + sprite_size/4, screenSize.height/2) padding:CGPointMake(0.f, 0.f) verticalPages:false];
+        
+        CCSprite* normalSprite = [CCSprite spriteWithFile:@"BackButton.png"];
+        CCSprite* selectedSprite = [CCSprite spriteWithFile:@"BackButton.png"];
+		CCMenuItemSprite *menuItem1 = [CCMenuItemSprite itemFromNormalSprite:normalSprite selectedSprite:selectedSprite target:self selector:@selector(onMenu:)];
+        menuItem1.position = ccp(-screenSize.width/2 + 35, -screenSize.height/2 + 25);
+        
+        [menuGrid addChild:menuItem1 z:1 tag:0];
+		
+        //make grid its own class and add as a layer
+		[self addChild:menuGrid];
+        
+	}
+	return self;
+}
+
+- (void)onMenu:(id)sender
+{
+	NSLog(@"on menu");
+	[[CCDirector sharedDirector] replaceScene:[MenuScene node]];
+}
+
+-(void) SelectWorld: (id) sender
+{
+    CCMenuItem *itm = (CCMenuItem *)sender;
+    [[CCDirector sharedDirector] replaceScene:[[LevelSelect node] initWithWorld:itm.tag]];
+}
+
+-(void) Dummy: (id) sender
+{
+}
+
+// on "dealloc" you need to release all your retained objects
+- (void) dealloc
+{
+	// in case you have something to dealloc, do it in this method
+	// in this particular example nothing needs to be released.
+	// cocos2d will automatically release all the children (Label)
+	
+	// don't forget to call "super dealloc"
+	[super dealloc];
+}
+@end

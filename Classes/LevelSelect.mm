@@ -1,0 +1,386 @@
+//
+//  LevelSelect.m
+//  Fireballin
+//
+//  Created by Jeffrey Russell Ellis on 4/1/11.
+//  Copyright 2011 __MyCompanyName__. All rights reserved.
+//
+
+#import "LevelSelect.h"
+#import "MenuScene.h"
+#import "MainMenu.h"
+#import "cocos2d.h"
+#import "SlidingMenuGrid.h"
+#import "GameScene.h"
+#import "SimpleAudioEngine.h"
+#import "SpecialPushScene.h"
+#import "WorldSelect.h"
+#import "CCVideoPlayer.h"
+
+@implementation LevelSelect
+
++(id) scene
+{
+	// 'scene' is an autorelease object.
+	CCScene *scene = [CCScene node];
+	
+	// 'layer' is an autorelease object.
+	LevelSelect *layer = [LevelSelect node];
+	
+	// add layer as a child to scene
+	[scene addChild: layer];
+	
+	// return the scene
+	return scene;
+}
+
+- (id) initWithWorld:(int) worldNum page: (int) pageNum
+{
+	if( (self=[super init] )) {
+        
+        isIpad = [CCDirector sharedDirector].winSize.width == 1024 ? YES : NO;
+		screenSize = [[CCDirector sharedDirector] winSize];
+        
+		curWorld = worldNum;
+		pushCheck = YES;
+        
+        self.anchorPoint = CGPointZero;
+		self.position = CGPointZero;
+        
+        float lightOffset = 0;
+		
+		id target = self;
+		int iMaxLevels = 50;
+        float lightModeOffset = 0.0f;
+#ifdef LITEMODE
+        iMaxLevels = 5;
+        lightOffset = 60;
+        lightModeOffset = 32.0f;
+#endif
+        int levelsPerPage = 10;
+        iMaxLevels = [worlds[curWorld-1] count];
+        int iWorldPages = ceil((float)iMaxLevels/10);
+        
+        selected = NO;
+        
+        ipadScale = 1024/480;
+        float offsetx = 30;
+        float offsety = 70;
+        if(!isIpad) {
+            ipadScale = 1;
+            offsetx = 0;
+            offsety = 0;
+        }
+        offsetx = 0;
+        offsety = 0;
+		
+        stars_collected = 0;
+		NSMutableArray* allItems = [NSMutableArray arrayWithCapacity:51];
+        for(int worldPage = 1; worldPage <= iWorldPages; ++worldPage) 
+        {
+            if(worldPage == iWorldPages) levelsPerPage = iMaxLevels % levelsPerPage;
+            if(levelsPerPage == 0) levelsPerPage = 10;
+            int max_unlocked = 1;
+            CCLayer *page = [[CCLayer alloc] init];
+            for (int i = 1; i <= levelsPerPage; ++i)
+            {
+                
+                // create a menu item for each character
+                NSString* image = [NSString stringWithFormat:@"GlowLevelButtonLocked"];
+                NSString *bgImage = [NSString stringWithFormat:@"GlowLevelButtonLocked"];
+                NSString* world_string = [NSString stringWithFormat:@"%i", worldNum];
+                NSString* old_level_string = [NSString stringWithFormat:@"%i", i+10*(worldPage-1)];
+                NSString* level_string = [NSString stringWithFormat:@"%i-", i+10*(worldPage-1)];
+                NSString* lock_key_string = [level_string stringByAppendingString:@"Lock-"];
+                lock_key_string = [lock_key_string stringByAppendingString:world_string];
+                //NSLog(lock_key_string);
+                
+                if(worldNum == 1) {
+                    switch (worldPage) {
+                        case 1:
+                            bgImage = [NSString stringWithFormat:@"blueLevel"];
+                            break;
+                        case 2:
+                            bgImage = [NSString stringWithFormat:@"redLevel"];
+                            break;
+                        case 3:
+                            bgImage = [NSString stringWithFormat:@"yellowLevel"];
+                            break;
+                        case 4:
+                            bgImage = [NSString stringWithFormat:@"greenLevel"];
+                            break;
+                        default:
+                            bgImage = [NSString stringWithFormat:@"darkLevel"];
+                            break;
+                    }
+                } else if(worldNum == 2) {
+                    bgImage = [NSString stringWithFormat:@"blueLevel"];
+                }
+                if(isIpad) {
+                    bgImage = [bgImage stringByAppendingString:@"-hd"];
+                }
+                bgImage = [bgImage stringByAppendingString:@".png"];
+                
+                int lock_val = [[NSUserDefaults standardUserDefaults] floatForKey:lock_key_string];
+                if (lock_val == 0) {
+                    image = [NSString stringWithFormat:@"GlowLevelButtonLocked"];
+                }
+                else {
+                    int num_stars = 0;
+                    NSString* star_key_string;
+                    if(worldNum == 1) {
+                        star_key_string = [old_level_string stringByAppendingString:@"Star"];
+                    } else {
+                        star_key_string = [level_string stringByAppendingString:@"Star-"];
+                        star_key_string = [star_key_string stringByAppendingString:world_string];
+                    }
+                    num_stars = [[NSUserDefaults standardUserDefaults] floatForKey:star_key_string];
+                    
+                    stars_collected += num_stars;
+                    
+                    
+                    
+                    switch (num_stars) {
+                        case 0:
+                            image = [NSString stringWithFormat:@"GlowLevelButtonNoStars"];
+                            break;
+                        case 1:
+                            image = [NSString stringWithFormat:@"GlowLevelButtonOneStar"];
+                            break;
+                        case 2:
+                            image = [NSString stringWithFormat:@"GlowLevelButtonTwoStars"];
+                            break;
+                        case 3:
+                            image = [NSString stringWithFormat:@"GlowLevelButtonThreeStars"];
+                            break;
+                        default:
+                            break;
+                    }
+                    max_unlocked++;
+                }
+                if(isIpad) {
+                    image = [image stringByAppendingString:@"-hd"];
+                }
+                
+                NSString* normalImage = [NSString stringWithFormat:@"%@.png", image];
+                CCSprite* starImage = [CCSprite spriteWithFile:normalImage];
+                CCSprite* normalSprite = [CCSprite spriteWithFile:bgImage];
+                CCSprite* selectedSprite = [CCSprite spriteWithFile:bgImage];
+
+                // If it's unlocked it can be selected, if not it gets a dummy selector
+                CCMenuItemSprite* item;
+                if ([image isEqualToString: @"GlowLevelButtonLocked"]) {
+                    item =[CCMenuItemSprite itemFromNormalSprite:normalSprite selectedSprite:selectedSprite target:self selector:@selector(Dummy:)];
+                }
+                else {
+                    item =[CCMenuItemSprite itemFromNormalSprite:normalSprite selectedSprite:selectedSprite target:target selector:@selector(LaunchLevel:)];
+                }
+                item.tag = i+10*(worldPage-1);
+                CCMenu *level_icon = [CCMenu menuWithItems:item, nil];
+                level_icon.position = ccp((70.0f + 90.0f*((i-1)%5))*ipadScale, (240.0f - 100.0f*(floor(i/6)) - lightOffset)*ipadScale);
+                starImage.position =  ccp((70.0f + 90.0f*((i-1)%5))*ipadScale, (240.0f - 100.0f*(floor(i/6)) - lightOffset)*ipadScale);
+                [page addChild:level_icon];
+                [page addChild:starImage];
+            }
+            
+            for (int i = 1; i < max_unlocked; i++) {
+                NSString* level_string = [NSString stringWithFormat:@"%i", i+10*(worldPage-1)];
+                int levelFontSize = 30;
+                if(isIpad) {
+                    levelFontSize = 60;
+                }
+                CCLabelTTF* level_num_label = [CCLabelTTF labelWithString:level_string fontName:@"Futura" fontSize:levelFontSize];
+                if(i+10*(worldPage-1) >= 10 && i+10*(worldPage-1) <= 19) {
+                    level_num_label.position = ccp((70.0f + 90.0f*((i-1)%5))*ipadScale + offsetx, (250.0f - 100.0f*(floor(i/6)) - lightOffset)*ipadScale + offsety);
+                } else {
+                    level_num_label.position = ccp((70.0f + 90.0f*((i-1)%5))*ipadScale + offsetx, (250.0f - 100.0f*(floor(i/6)) - lightOffset)*ipadScale + offsety);
+                }
+                [page addChild:level_num_label z:2];
+            }
+            
+			[allItems addObject:page];
+        }
+        
+        scroller = [[CCScrollLayer alloc] initWithLayers:allItems widthOffset: 0];
+        
+        [scroller setPage:pageNum];
+
+        [self addChild:scroller];
+        
+		// Back Button
+		CCSprite* backSprite;
+        CCSprite* backSelectedSprite;
+        if (isIpad) {
+            backSprite = [CCSprite spriteWithFile:@"BackButton-hd.png"];
+            backSelectedSprite = [CCSprite spriteWithFile:@"BackButton-hd.png"];
+        } else {
+            backSprite = [CCSprite spriteWithFile:@"BackButton.png"];
+            backSelectedSprite = [CCSprite spriteWithFile:@"BackButton.png"];
+        }
+		CCMenuItemSprite *backMenuItem = [CCMenuItemSprite itemFromNormalSprite:backSprite selectedSprite:backSelectedSprite target:self selector:@selector(onBack:)];
+        if (isIpad) {
+            backMenuItem.position = ccp(-screenSize.width/2 + 70, -screenSize.height/2 + 50);
+        } else {
+            backMenuItem.position = ccp(-screenSize.width/2 + 35, -screenSize.height/2 + 25);
+        }
+        
+        CCMenu *backMenu = [CCMenu menuWithItems:backMenuItem, nil];
+		[self addChild:backMenu];
+        
+        //Add stars_collected/30 image and text
+		CCSprite* starSprite;
+        if(isIpad) {
+            starSprite = [CCSprite spriteWithFile:@"Star-hd.png"];
+        } else {
+            starSprite = [CCSprite spriteWithFile:@"Star.png"];
+        }
+        starSprite.position = ccp(385, 27 + lightModeOffset);
+        if(isIpad) {
+            starSprite.position = ccp(770, 54 + lightModeOffset);
+        }
+        if(stars_collected >= 100)
+        {
+            starSprite.position = ccp(370, 27 + lightModeOffset);
+            if(isIpad) {
+                starSprite.position = ccp(740, 54 + lightModeOffset);
+            }
+        }
+        
+        NSString* starsCollectedString = [NSString stringWithFormat:@"%i/%i", stars_collected, iMaxLevels*3];
+        int starFontSize = 20;
+        if(isIpad) {
+            starFontSize = 40;
+        }
+        CCLabelTTF *starsCollectedLabel = [CCLabelTTF labelWithString:starsCollectedString fontName:@"Futura" fontSize:starFontSize];
+        starsCollectedLabel.position = ccp(440, 25 + lightModeOffset);
+        if(isIpad) {
+            starsCollectedLabel.position = ccp(880, 50 + lightModeOffset);
+        }
+        if(stars_collected >= 100) {
+            starsCollectedLabel.position = ccp(430, 25 + lightModeOffset);
+            if(isIpad) {
+                starsCollectedLabel.position = ccp(860, 50 + lightModeOffset);
+            }
+        }
+        
+        [self addChild:starSprite];
+        [self addChild:starsCollectedLabel];
+        
+		[self schedule:@selector(update:)];
+        
+        if(![[SimpleAudioEngine sharedEngine] isBackgroundMusicPlaying]) { [[SimpleAudioEngine sharedEngine] playBackgroundMusic:@"Decisions.mp3" loop:YES]; }
+        
+        [((MainMenu *)self.parent) setDarkBackground:0];
+        prevPos = [scroller getPosition];
+	}
+	return self;
+}
+
+- (void) update:(ccTime)dt {
+    float pos = [scroller getPosition];
+    [((MainMenu *)self.parent) setDarkBackground:(pos/ipadScale)];
+    //prevPos = pos;
+    //[timer setString:[NSString stringWithFormat:@"%f", [scroller getPosition]]];
+    //NSLog(@"%f",[scroller getPosition]);
+}
+
+- (void)onBack:(id)sender
+{
+    [[SimpleAudioEngine sharedEngine] playEffect:@"buttonClick.WAV"];
+	NSLog(@"on back");
+#ifdef LITEMODE
+    MenuScene *menuSceneLayer = [MenuScene node];
+    [self.parent addChild:menuSceneLayer z:0];
+    [self.parent removeChild:self cleanup:YES];
+#else
+    WorldSelect *WorldSelectLayer = [[WorldSelect node] initWithWorld:curWorld];
+    [((MainMenu *)self.parent) removeDarkBackground];
+    [self.parent addChild:WorldSelectLayer z:0];
+    [self.parent removeChild:self cleanup:YES];
+#endif
+	//[[CCDirector sharedDirector] replaceScene:[[WorldSelect node] initWithWorld:curWorld]];
+}
+
+-(void)LaunchLevel:(id)sender
+{
+    if(!selected) {
+        [((MainMenu *)self.parent) removeDarkBackground];
+        [[SimpleAudioEngine sharedEngine] playEffect:@"buttonClick.WAV"];
+        NSLog(@"on launch level");
+        CCMenuItem *itm = (CCMenuItem *)sender;
+        /*[[NSUserDefaults standardUserDefaults] setFloat:0 forKey:@"intro"];
+        [[NSUserDefaults standardUserDefaults] setFloat:0 forKey:@"slow"];
+        [[NSUserDefaults standardUserDefaults] setFloat:0 forKey:@"invincible"];
+        [[NSUserDefaults standardUserDefaults] setFloat:0 forKey:@"destroy"];
+        [[NSUserDefaults standardUserDefaults] setFloat:0 forKey:@"demolish"];*/
+        
+        int tag = itm.tag;
+        if(itm.tag == 1)
+        {
+            [CCVideoPlayer setNoSkip:false];
+            if([[NSUserDefaults standardUserDefaults] floatForKey:@"intro"] == 0) {
+                [CCVideoPlayer setNoSkip:true];
+            }
+            [[CCDirector sharedDirector] replaceScene:[[Game node] initWithGameDifficulty:HARD setMode:LEVEL levelNum:itm.tag worldNum:curWorld]];
+            [[CCDirector sharedDirector] pushScene:[[SpecialPushScene node] initVideo:itm.tag]];
+            [[NSUserDefaults standardUserDefaults] setFloat:1 forKey:@"intro"];
+            [[NSUserDefaults standardUserDefaults] synchronize];
+        }
+        else if(itm.tag == 11 && [[NSUserDefaults standardUserDefaults] floatForKey:@"slow"] == 0)
+        {
+            [CCVideoPlayer setNoSkip:true];
+            [[CCDirector sharedDirector] replaceScene:[[Game node] initWithGameDifficulty:HARD setMode:LEVEL levelNum:itm.tag worldNum:curWorld]];
+            [[CCDirector sharedDirector] pushScene:[[SpecialPushScene node] initVideo:itm.tag]];
+            [[NSUserDefaults standardUserDefaults] setFloat:1 forKey:@"slow"];
+            [[NSUserDefaults standardUserDefaults] synchronize];
+        }
+        else if(itm.tag == 21 && [[NSUserDefaults standardUserDefaults] floatForKey:@"invincible"] == 0)
+        {
+            [CCVideoPlayer setNoSkip:true];
+            [[CCDirector sharedDirector] replaceScene:[[Game node] initWithGameDifficulty:HARD setMode:LEVEL levelNum:itm.tag worldNum:curWorld]];
+            [[CCDirector sharedDirector] pushScene:[[SpecialPushScene node] initVideo:itm.tag]];
+            [[NSUserDefaults standardUserDefaults] setFloat:1 forKey:@"invincible"];
+            [[NSUserDefaults standardUserDefaults] synchronize];
+        }
+        else if(itm.tag == 31 && [[NSUserDefaults standardUserDefaults] floatForKey:@"destroy"] == 0)
+        {
+            [CCVideoPlayer setNoSkip:true];
+            [[CCDirector sharedDirector] replaceScene:[[Game node] initWithGameDifficulty:HARD setMode:LEVEL levelNum:itm.tag worldNum:curWorld]];
+            [[CCDirector sharedDirector] pushScene:[[SpecialPushScene node] initVideo:itm.tag]];
+            [[NSUserDefaults standardUserDefaults] setFloat:1 forKey:@"destroy"];
+            [[NSUserDefaults standardUserDefaults] synchronize];
+        }
+        else if(itm.tag == 41 && [[NSUserDefaults standardUserDefaults] floatForKey:@"demolish"] == 0)
+        {
+            [CCVideoPlayer setNoSkip:true];
+            [[CCDirector sharedDirector] replaceScene:[[Game node] initWithGameDifficulty:HARD setMode:LEVEL levelNum:itm.tag worldNum:curWorld]];
+            [[CCDirector sharedDirector] pushScene:[[SpecialPushScene node] initVideo:itm.tag]];
+            [[NSUserDefaults standardUserDefaults] setFloat:1 forKey:@"demolish"];
+            [[NSUserDefaults standardUserDefaults] synchronize];
+        }
+        else
+        {
+            [[CCDirector sharedDirector] replaceScene:[CCTransitionFade transitionWithDuration:1.0 scene:[[Game node] initWithGameDifficulty:HARD setMode:LEVEL levelNum:itm.tag worldNum:curWorld]]];
+        }
+        selected = YES;
+    }
+    //[[CCDirector sharedDirector] replaceScene:[CCTransitionFade transitionWithDuration:1.0 scene:[[Game node] initWithGameDifficulty:HARD setMode:LEVEL levelNum:itm.tag]]];
+    //if(pushCheck) [self specialPushLevelBegin:itm.tag];
+}
+
+-(void) Dummy: (id) sender
+{
+}
+
+// on "dealloc" you need to release all your retained objects
+- (void) dealloc
+{
+	// in case you have something to dealloc, do it in this method
+	// in this particular example nothing needs to be released.
+	// cocos2d will automatically release all the children (Label)
+	
+	// don't forget to call "super dealloc"
+	[super dealloc];
+}
+@end
+

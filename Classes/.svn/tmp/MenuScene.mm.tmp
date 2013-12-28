@@ -1,0 +1,327 @@
+//
+//  MenuScene.m
+//  Fireballin
+//
+//  Created by Jeffrey Russell Ellis on 1/19/11.
+//  Copyright 2011 __MyCompanyName__. All rights reserved.
+//
+
+#import "MenuScene.h"
+#import "LevelSelect.h"
+#import "Difficulty.h"
+#import "Instructions.h"
+#import	"FireBall.h"
+#import "cocos2d.h"
+#import "Level.h"
+#import "WorldSelect.h"
+NSMutableArray *levels;
+
+@implementation MenuScene
+
++(id) scene
+{
+	// 'scene' is an autorelease object.
+	CCScene *scene = [CCScene node];
+	
+	// 'layer' is an autorelease object.
+	MenuScene *layer = [MenuScene node];
+	
+	// add layer as a child to scene
+	[scene addChild: layer];
+	
+	// return the scene
+	return scene;
+}
+
+- (id) init
+{
+	if( (self=[super init] )) {
+        
+		[self initializeLevels];
+		
+		float testEmpty = [[NSUserDefaults standardUserDefaults] floatForKey:@"easy1"];
+		if(testEmpty == -1){
+			[[NSUserDefaults standardUserDefaults] setFloat:3 forKey:@"easy1"];
+			[[NSUserDefaults standardUserDefaults] setFloat:2 forKey:@"easy2"];
+			[[NSUserDefaults standardUserDefaults] setFloat:1 forKey:@"easy3"];
+			
+			[[NSUserDefaults standardUserDefaults] setFloat:3 forKey:@"medium1"];
+			[[NSUserDefaults standardUserDefaults] setFloat:2 forKey:@"medium2"];
+			[[NSUserDefaults standardUserDefaults] setFloat:1 forKey:@"medium3"];
+			
+			[[NSUserDefaults standardUserDefaults] setFloat:3 forKey:@"hard1"];
+			[[NSUserDefaults standardUserDefaults] setFloat:2 forKey:@"hard2"];
+			[[NSUserDefaults standardUserDefaults] setFloat:1 forKey:@"hard3"];
+			
+			[[NSUserDefaults standardUserDefaults] setFloat:3 forKey:@"extreme1"];
+			[[NSUserDefaults standardUserDefaults] setFloat:2 forKey:@"extreme2"];
+			[[NSUserDefaults standardUserDefaults] setFloat:1 forKey:@"extreme3"];
+			
+			[[NSUserDefaults standardUserDefaults] synchronize];
+		}
+		
+        [CCMenuItemFont setFontName:@"Futura"];
+        [CCMenuItemFont setFontSize:32];
+
+		CCMenuItemFont *menuItem1 = [CCMenuItemFont itemFromString:@"Level Mode" target:self selector:@selector(onLevels:)];
+		CCMenuItemFont *menuItem2 = [CCMenuItemFont itemFromString:@"Survival Mode" target:self selector:@selector(onSurvival:)];
+		CCMenuItemFont *menuItem3 = [CCMenuItemFont itemFromString:@"Instructions" target:self selector:@selector(onInstructions:)];
+
+		screenSize = [[CCDirector sharedDirector] winSize];
+		
+		CCMenu *menu = [CCMenu menuWithItems:menuItem1, menuItem2, menuItem3, nil];
+		[menu alignItemsVertically];
+		menu.position = ccp(screenSize.width/2, screenSize.height/2 - screenSize.height/8);
+		[self addChild:menu z:2];
+		
+		CCLabelTTF *title = [CCLabelTTF labelWithString:@"Fireballin'" fontName:@"Futura" fontSize:80];
+		title.position = ccp(screenSize.width/2, screenSize.height - screenSize.height/6);
+		title.color = ccc3(250, 0, 0);
+		[self addChild:title z:2];
+		
+		
+		// Stuff to have fireballs in the background
+		gameOver = NO;
+		gameRunning = NO;
+		
+		[UIApplication sharedApplication].idleTimerDisabled = YES;
+		
+		fireBalls = [[NSMutableArray alloc] initWithObjects:nil];
+		
+		game_time = 0.0f;
+		initial_pause = 0.0f;
+
+		spawnDuration = 2.0f;
+		fireBallStartSpeed = 100.0f;
+
+		spawn_time = 0.0f;
+		spawn_time = spawnDuration + 1.0f;
+		
+		// schedule a repeating callback on every frame
+        [self schedule:@selector(update:)];
+	}
+	return self;
+}
+
+///////////////////////// functions for fireballs
+- (void) update:(ccTime)dt {
+	initial_pause += dt;
+	if(initial_pause > 0.1f) gameRunning = YES;
+	if(gameRunning)
+	{
+		game_time += dt;
+		spawn_time += dt;
+		
+		//UPDATE FIREBALLS
+		float curX = 0.0f;
+		float curY = 0.0f;
+		
+		for (FireBall *curFireBall in fireBalls)
+		{
+			BOOL m_bCollided = NO;
+			curX = [curFireBall getXPos];
+			curY = [curFireBall getYPos];
+			
+			[curFireBall movePos:dt];
+			
+			CCSprite *curSprite = [curFireBall getSprite];
+			float fSpriteWidth = [curSprite boundingBox].size.width;
+			float fSpriteHeight = [curSprite boundingBox].size.height;
+			
+			//if pos.x > 480 - size/2, hits right
+			if(curSprite.position.x > screenSize.width - fSpriteWidth/2 + 5.0f)
+			{
+				float curAngle = [curFireBall getAngle];
+				float newAngle = 0.0f;
+				if(curAngle > 0.0f) newAngle = (1.57 - curAngle) + 1.57;
+				if(curAngle <= 0.0f) newAngle = -1.57 - (1.57 + curAngle);
+				[curFireBall setAngle:newAngle];
+				m_bCollided = YES;
+			}
+			//if pos.x < 0 + size/2, hits left
+			if(curSprite.position.x < fSpriteWidth/2 - 5.0f)
+			{
+				float curAngle = [curFireBall getAngle];
+				float newAngle = 0.0f;
+				if(curAngle > 0.0f) newAngle = 1.57 - (curAngle - 1.57);
+				if(curAngle <= 0.0f) newAngle = -1.57 - (curAngle + 1.57);
+				[curFireBall setAngle:newAngle];
+				m_bCollided = YES;
+			}
+			//if pos.y > 320 - size/2, hits top
+			if(curSprite.position.y > screenSize.height - fSpriteHeight/2 + 5.0f)
+			{
+				[curFireBall setAngle:-[curFireBall getAngle]];
+				m_bCollided = YES;
+			}
+			//if pos.y < 0 + size/2, hits bottom
+			if(curSprite.position.y < fSpriteHeight/2 - 5.0f)
+			{
+				[curFireBall setAngle:-[curFireBall getAngle]];
+				m_bCollided = YES;
+			}
+			
+			if(m_bCollided) [curFireBall setPos:curX setYPos:curY];
+		}
+		
+		//if time is past certain amount, add a fireball
+		if(spawn_time > spawnDuration && fireBalls.count < 5)
+		{
+			spawn_time = 0.0f;
+			
+			[self createFireball];
+		}
+	}
+	
+}
+
+-(void) createFireball
+{
+	FireBall *newFireball = [FireBall node];
+	
+	[fireBalls addObject:newFireball];
+	float speed = fireBallStartSpeed + 50.0f * fireBalls.count;
+	[newFireball addSpeed:speed];
+	
+	float fFireBallAngle = (arc4random() % 628)/100.0f;
+	[newFireball setAngle:fFireBallAngle];
+	[self addChild:[newFireball getSprite] z:1];
+	[newFireball fadeIn];
+}
+//////////////////
+
+- (void)onLevels:(id)sender
+{
+	NSLog(@"on levels");
+	[[CCDirector sharedDirector] replaceScene:[LevelSelect node]];
+}
+
+- (void)onSurvival:(id)sender
+{
+	NSLog(@"on survival");
+	[[CCDirector sharedDirector] replaceScene:[Difficulty node]];
+}
+
+- (void)onInstructions:(id)sender
+{
+	NSLog(@"on instructions");
+	[[CCDirector sharedDirector] replaceScene:[Instructions node]];
+}
+
++(NSMutableArray *) getLevels;
+{
+    return levels;
+}
+
+//Level Initializer
+-(void)initializeLevels
+{
+    levels = [[NSMutableArray alloc] init];
+    
+    levelXML = [[TBXML tbxmlWithXMLFile:@"levels.xml"] retain];
+    numLevels = [[TBXML valueOfAttributeNamed:@"number" forElement:levelXML.rootXMLElement] intValue];
+    
+	// Obtain root element
+	TBXMLElement * root = levelXML.rootXMLElement;
+    
+    if (root) {
+        
+        TBXMLElement * level = [TBXML childElementNamed:@"Level" parentElement:root];
+        
+        while(level != nil) {
+            Level * currentLevel = [[Level alloc] initWithData:[[TBXML valueOfAttributeNamed:@"onestar" forElement:level] intValue]
+                                                       coinTwo:[[TBXML valueOfAttributeNamed:@"twostar" forElement:level] intValue]
+                                                     coinThree:[[TBXML valueOfAttributeNamed:@"threestar" forElement:level] intValue]];
+            
+            //get player start loc
+            TBXMLElement * player = [TBXML childElementNamed:@"Player" parentElement:level];
+            
+            [currentLevel addPlayer:[[TBXML valueOfAttributeNamed:@"x" forElement:player] intValue] 
+                               posY:[[TBXML valueOfAttributeNamed:@"y" forElement:player] intValue]
+                              lives:[[TBXML valueOfAttributeNamed:@"lives" forElement:player] intValue]];
+        
+            //get fireball setup info
+        
+            //get walls
+            TBXMLElement * walls = [TBXML childElementNamed:@"Walls" parentElement:level];
+            
+            if(walls != nil)
+            {
+                TBXMLElement * wall = [TBXML childElementNamed:@"wall" parentElement:walls];
+        
+                while (wall != nil) {
+                    int x1, y1, x2, y2;
+                
+                    x1 = [[TBXML valueOfAttributeNamed:@"x1" forElement:wall] intValue];
+                    y1 = [[TBXML valueOfAttributeNamed:@"y1" forElement:wall] intValue];
+                    x2 = [[TBXML valueOfAttributeNamed:@"x2" forElement:wall] intValue];
+                    y2 = [[TBXML valueOfAttributeNamed:@"y2" forElement:wall] intValue];
+                
+                    [currentLevel addWall:x1 posX1:x1 posY1:y1 posX2:x2 posY2:y2];
+                
+                    wall = [TBXML nextSiblingNamed:@"wall" searchFromElement:wall];
+                }
+            }
+            
+            //get coins
+            TBXMLElement * coins = [TBXML childElementNamed:@"Coins" parentElement:level];
+            
+            if(coins != nil)
+            {
+                TBXMLElement * coin = [TBXML childElementNamed:@"coin" parentElement:coins];
+            
+                while (coin != nil) {
+                    float start, duration, x, y;
+                    int points;
+                
+                    start = [[TBXML valueOfAttributeNamed:@"time" forElement:coin] floatValue];
+                    duration = [[TBXML valueOfAttributeNamed:@"duration" forElement:coin] floatValue];
+                    x = [[TBXML valueOfAttributeNamed:@"x" forElement:coin] floatValue];
+                    y = [[TBXML valueOfAttributeNamed:@"y" forElement:coin] floatValue];
+                    points = [[TBXML valueOfAttributeNamed:@"points" forElement:coin] intValue];
+                
+                    [currentLevel addCoin:start duration:duration posX:x posY:y points:points];
+                
+                    coin = [TBXML nextSiblingNamed:@"coin" searchFromElement:coin];
+                }
+            }
+            
+            TBXMLElement * fireball = [TBXML childElementNamed:@"Fireballs" parentElement:level];
+            
+            if (fireball != nil) {
+                [currentLevel setFireballAlgo:[[TBXML valueOfAttributeNamed:@"spawntime" forElement:fireball] floatValue]
+                                  fireballCap:[[TBXML valueOfAttributeNamed:@"cap" forElement:fireball] intValue]
+                                speedIncrease:[[TBXML valueOfAttributeNamed:@"speedincrease" forElement:fireball] floatValue]
+                                     speedCap:[[TBXML valueOfAttributeNamed:@"speedcap" forElement:fireball] floatValue]
+                                   startSpeed:[[TBXML valueOfAttributeNamed:@"startspeed" forElement:fireball] floatValue]];
+                
+            }
+        /*
+            //get powerups
+            TBXMLElement * powerup = [TBXML childElementNamed:@"powerup" parentElement:level];
+            
+            while (powerup != nil) {
+        
+                powerup = [TBXML nextSiblingNamed:@"powerup" searchFromElement:powerup];
+            }*/
+            
+            [levels addObject:currentLevel];
+            
+            level = [TBXML nextSiblingNamed:@"Level" searchFromElement:level];
+        }
+    
+    }
+    
+}
+
+// on "dealloc" you need to release all your retained objects
+- (void) dealloc
+{
+	// in case you have something to dealloc, do it in this method
+	// in this particular example nothing needs to be released.
+	// cocos2d will automatically release all the children (Label)
+	
+	// don't forget to call "super dealloc"
+	[super dealloc];
+}
+@end

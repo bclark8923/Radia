@@ -1,0 +1,75 @@
+//
+//  Powerup.h
+//  Fireballin
+//
+//  Created by Brian Clark on 4/11/11.
+//  Copyright 2011 U of Michigan. All rights reserved.
+//
+
+#import <Foundation/Foundation.h>
+#import "cocos2d.h"
+
+
+@interface Powerup : CCNode {
+    
+    CCSprite *pPowerup;
+	CGSize screenSize;
+
+    NSString* powerup;
+    
+    float spawnTime;
+    float duration;
+    float x;
+    float y;
+    float activeTime;
+    
+    BOOL active;
+    BOOL used;
+    
+    int destroyCount;
+    float slowFactor;
+}
+
+-(id) init;
+
+-(id) initWithData:(NSString*) powerupType setStart:(float) startTime setDuration:(float) durationTime 
+              setX:(float) X setY:(float) Y activeTime:(float)actTime;
+
+-(id) initWithData:(NSString*) powerupType setStart:(float) startTime setDuration:(float) durationTime 
+              setX:(float) X setY:(float) Y activeTime:(float)actTime slowFactor:(float)factor;
+
+-(id) initWithData:(NSString*) powerupType setStart:(float) startTime setDuration:(float) durationTime 
+              setX:(float) X setY:(float) Y destroyCount:(int)count;
+
+-(id) initWithData:(NSString*) powerupType setStart:(float) startTime setDuration:(float) durationTime 
+              setX:(float) X setY:(float) Y;
+
+-(BOOL) isActive;
+
+-(void) deactivate;
+
+-(void) activate;
+
+-(BOOL) isUsed;
+
+-(void) use;
+
+-(float) getStartTime;
+
+-(float) getDuration;
+
+-(float) getX;
+
+-(float) getY;
+
+-(float) getActiveTime;
+
+-(int) getDestroyCount;
+
+-(float) getSlowFactor;
+
+-(NSString*) getType;
+
+-(CCSprite *) getSprite;
+
+@end

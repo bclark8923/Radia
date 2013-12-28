@@ -1,0 +1,287 @@
+//
+//  MenuScene.m
+//  Fireballin
+//
+//  Created by Jeffrey Russell Ellis on 1/19/11.
+//  Copyright 2011 __MyCompanyName__. All rights reserved.
+//
+
+#import "MainMenu.h"
+#import "MenuScene.h"
+#import "PauseScene.h"
+#import "LevelSelect.h"
+#import "Difficulty.h"
+#import "Instructions.h"
+#import	"FireBall.h"
+#import "cocos2d.h"
+#import "Level.h"
+#import "Options.h"
+#import "WorldSelect.h"
+#import "LiteModeLevelSelect.h"
+#import "LevelComing.h"
+#import "GameCenterManager.h"
+#import "SimpleAudioEngine.h"
+#import "AdManager.h"
+#import "SurvivalSelector.h"
+
+@implementation MainMenu
+
++(id) scene
+{
+	// 'scene' is an autorelease object.
+	CCScene *scene = [CCScene node];
+	
+	// 'layer' is an autorelease object.
+	MainMenu *menuLayer = [MainMenu node];
+    //optionsLayer = [Options node];
+	
+	// add layer as a child to scene
+	[scene addChild: menuLayer];
+	
+	// return the scene
+	return scene;
+}
+
+//#define LITEMODE
+
+- (id) init
+{
+	if( (self=[super init] )) {
+        menuSceneLayer = [MenuScene node];
+        
+        deviceScale = 1024/240;
+        
+        [self addChild:menuSceneLayer z:0 tag:kMenuScene];
+        
+        [self prepareBackground];
+    }
+	return self;
+}
+
+- (id) initPause
+{
+	if( (self=[super init] )) {
+        PauseScene *pauseSceneLayer = [PauseScene node];
+        
+        [self addChild:pauseSceneLayer z:0];
+        
+        [self prepareBackground];
+    }
+	return self;
+}
+
+- (id) initLevelOver:(int)curWorld page: (int) curPage
+{
+	if( (self=[super init] )) {
+        LevelSelect *levelSelectLayer = [[LevelSelect node] initWithWorld:curWorld page:curPage];
+        
+        [self addChild:levelSelectLayer z:0];
+        
+        [self prepareBackground];
+    }
+	return self;
+}
+
+- (id) initLiteLevelOver:(int)curWorld
+{
+	if( (self=[super init] )) {
+        LiteModeLevelSelect *levelSelectLayer = [[LiteModeLevelSelect node] initWithWorld:curWorld];
+        
+        [self addChild:levelSelectLayer z:0];
+        
+        [self prepareBackground];
+    }
+	return self;
+}
+
+-(id) initDifficulty:(GameMode)curMode
+{
+    if( (self=[super init] )) {
+        Difficulty *DifficultyLayer = [[Difficulty node] initWithMode:curMode];
+        
+        [self addChild:DifficultyLayer z:0];
+        
+        [self prepareBackground];
+    }
+	return self;
+}
+
+-(id) initSurvival
+{
+    if( (self=[super init] )) {
+        SurvivalSelector *SurvivalSelectorLayer = [SurvivalSelector node];
+        
+        [self addChild:SurvivalSelectorLayer z:0];
+        
+        [self prepareBackground];
+    }
+	return self;
+}
+
+-(void) prepareBackground 
+{
+    
+    screenSize = [[CCDirector sharedDirector] winSize];
+    
+    CCParticleSystem* particle_system = [CCParticleSystemQuad particleWithFile:@"menu.plist"];
+    [self addChild:particle_system z:-2];
+    particle_system.blendFunc = (ccBlendFunc){GL_ONE, GL_ONE};
+    particle_system.position = ccp(screenSize.width/2, screenSize.height/2);
+    [particle_system resetSystem];
+    
+    //CCSprite* bg = [CCSprite spriteWithFile:@"blueBg.png"];
+    //bg.position = ccp(240,160);
+    //[self addChild:bg z:-20];
+    
+    //darkBg = [CCSprite spriteWithFile:@"blackBg.png"];
+    //darkBg.opacity = 0;
+    //darkBg.position = ccp(240,160);
+    //[self addChild:darkBg z:-19];
+    
+    if(![[SimpleAudioEngine sharedEngine] isBackgroundMusicPlaying]) { [[SimpleAudioEngine sharedEngine] playBackgroundMusic:@"Motion.mp3" loop:YES]; }
+    
+    gameOver = NO;
+    gameRunning = NO;
+    
+    [UIApplication sharedApplication].idleTimerDisabled = YES;
+
+    bgBlue = [CCSprite spriteWithFile:@"blueBg.png"];
+    bgBlue.position = ccp(240, 160);
+    bgBlue.scale = deviceScale;
+    [self addChild:bgBlue z:-10];
+    
+    
+    bgRed = [CCSprite spriteWithFile:@"redBg.png"];
+    bgRed.position = ccp(240, 160);
+    bgRed.visible = NO;
+    bgRed.scale = deviceScale;
+    [self addChild:bgRed z:-10];
+    
+    bgYellow = [CCSprite spriteWithFile:@"yellowBg.png"];
+    bgYellow.position = ccp(240, 160);
+    bgYellow.visible = NO;
+    bgYellow.scale = deviceScale;
+    [self addChild:bgYellow z:-10];
+    
+    bgGreen = [CCSprite spriteWithFile:@"greenBg.png"];
+    bgGreen.position = ccp(240, 160);
+    bgGreen.visible = NO;
+    bgGreen.scale = deviceScale;
+    [self addChild:bgGreen z:-10];
+    
+    bgDark = [CCSprite spriteWithFile:@"darkBg.png"];
+    bgDark.position = ccp(240, 160);
+    bgDark.visible = NO;
+    bgDark.scale = deviceScale;
+    [self addChild:bgDark z:-10];
+    
+}
+
+-(void) setDarkBackground:(float) pos {
+    if(pos < 480) {
+        if(!bgBlue.visible) {
+            bgBlue.visible = YES;
+        } 
+        if( pos > 0) {
+            bgBlue.opacity = ((480 - pos)/480) * 255;
+        } else {
+            bgBlue.opacity = 255;
+            //bgBlue.opacity = ((pos + 480) / 480) * 255;
+        }
+    } else {
+        bgBlue.visible = NO;
+    }
+    
+    if(pos > 0 && pos < 960) {
+        if(!bgRed.visible) {
+            bgRed.visible = YES;
+        } 
+        float temp_pos = pos - 480;
+        if( pos > 480) {
+            bgRed.opacity = ((480 - temp_pos)/480) * 255;
+        } else {
+            bgRed.opacity = ((temp_pos + 480) / 480) * 255;
+        }
+    } else {
+        bgRed.visible = NO;
+    }
+    
+    if(pos > 480 && pos < 1440) {
+        if(!bgYellow.visible) {
+            bgYellow.visible = YES;
+        }
+        float temp_pos = pos - 960;
+        if( pos > 960) {
+            bgYellow.opacity = ((480 - temp_pos)/480) * 255;
+        } else {
+            bgYellow.opacity = ((temp_pos + 480) / 480) * 255;
+        }
+    } else {
+        bgYellow.visible = NO;
+    }
+    
+    if(pos > 960 && pos < 1920) {
+        if(!bgGreen.visible) {
+            bgGreen.visible = YES;
+        }
+        float temp_pos = pos - 1440;
+        if( pos > 1440) {
+            bgGreen.opacity = ((480 - temp_pos)/480) * 255;
+        } else {
+            bgGreen.opacity = ((temp_pos + 480) / 480) * 255;
+        }
+    } else {
+        bgGreen.visible = NO;
+    }
+    
+    if(pos > 1440) { // && pos < 2400
+        if(!bgDark.visible) {
+            bgDark.visible = YES;
+        }
+        float temp_pos = pos - 1920;
+        if( pos > 1920) {
+            //bgDark.opacity = ((480 - temp_pos)/480) * 255;
+            bgDark.opacity = 255;
+        } else {
+            bgDark.opacity = ((temp_pos + 480) / 480) * 255;
+        }
+    } else {
+        bgDark.visible = NO;
+    }
+}
+
+-(void) removeDarkBackground {
+    if(!bgBlue.visible) {
+        bgBlue.visible = YES;
+        bgBlue.opacity = 255;
+    } 
+    
+    if(bgRed.visible) {
+        bgRed.visible = NO;
+    }
+    
+    if(bgYellow.visible) {
+        bgYellow.visible = NO;
+    }
+    
+    if(bgGreen.visible) {
+        bgGreen.visible = NO;
+    }
+    
+    if(bgDark.visible) {
+        bgDark.visible = NO;
+    }
+}
+
+// on "dealloc" you need to release all your retained objects
+- (void) dealloc
+{
+	// in case you have something to dealloc, do it in this method
+	// in this particular example nothing needs to be released.
+	// cocos2d will automatically release all the children (Label)
+	
+    [fireBalls release];
+	// don't forget to call "super dealloc"
+	[super dealloc];
+}
+@end

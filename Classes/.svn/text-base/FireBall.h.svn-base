@@ -1,0 +1,104 @@
+//
+//  FireBall.h
+//  Fireballin
+//
+//  Created by Brian Clark on 1/27/11.
+//  Copyright 2011 U of Michigan. All rights reserved.
+//
+
+#import <Foundation/Foundation.h>
+#import "cocos2d.h"
+
+@interface FireBall : CCNode {
+
+	CCSprite *pFireBall;
+    CCSprite *slow;
+	
+	float fSpeed;
+	float fSize;
+	
+	float fAngle;
+	int rotAngle;
+	
+	float fXPosition;
+	float fYPosition;
+    float playerXLoc;
+    float playerYLoc;
+    
+    float radius;
+	
+	bool isAlive;
+    bool used;
+    bool dead;
+	float lifetime;
+	float fadeInTime;
+    float fadeOutTime;
+    float rotSpeed;
+    
+    BOOL removed;
+    BOOL slowed;
+    BOOL killer;
+    
+    float slowDownTime;
+    float slowTimeRem;
+	
+	CCParticleSmoke *smokeTrail;
+	
+	CGSize screenSize;
+}
+
+-(id) initWithPlayerLoc: (float) playerX playerY: (float) playerY;
+
+-(void) resetRandomPos;
+
+-(void) setPos:(float) m_fXPos setYPos:(float) m_fYPos;
+
+-(void) movePos:(float) dt;
+
+-(void) setSprite:(CCSprite *) sprite;
+
+-(CCSprite *) getSprite;
+
+-(BOOL) isUsed;
+
+-(void) use;
+
+-(float) getXPos;
+
+-(float) getYPos;
+
+-(void) setAngle:(float) m_fAngle;
+
+-(float) getAngle;
+
+-(void) addSpeed:(float) m_fSpeed;
+
+-(void) fadeIn;
+
+-(bool) getIsAlive;
+
+-(void) updateLifetime:(float) time;
+
+-(float) getSpeed;
+
+-(float) getRadius;
+
+-(BOOL) fadeOutComplete;
+
+-(void) fadeOout:(float) dt;
+
+-(CCSprite *) getSlowSprite;
+
+-(void) setSlow:(BOOL)slowDown slowDownTime:(float)initialSlowTime slowTime:(float)slowTime;
+
+-(void) setSlowOpacity:(float) newOpacity;
+
+-(float) getSlowRem;
+
+-(float) getTotalSlow;
+
+-(void) rotate:(float) dt;
+
+-(void) isKiller;
+
+@end

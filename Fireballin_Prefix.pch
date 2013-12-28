@@ -1,0 +1,12 @@
+//
+// Prefix header for all source files of the 'Fireballin' target in the 'Fireballin' project
+//
+
+#ifdef __OBJC__
+	#import <Foundation/Foundation.h>
+    #import <UIKit/UIKit.h>
+#ifdef BETA  
+    #import "TestFlight.h"
+#endif
+#endif
+//#define LITEMODE

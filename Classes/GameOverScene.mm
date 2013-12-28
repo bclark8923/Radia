@@ -1,0 +1,242 @@
+//
+//  GameOverScene.m
+//  Fireballin
+//
+//  Created by Brian Clark on 1/31/11.
+//  Copyright 2011 U of Michigan. All rights reserved.
+//
+
+
+#import "GameOverScene.h"
+#import "MenuScene.h"
+#import "MainMenu.h"
+#import "GameScene.h"
+#import "Difficulty.h"
+#import "SimpleAudioEngine.h"
+#import "cocos2d.h"
+#import <UIKit/UIKit.h>
+#import <iAd/iAd.h>
+
+//#define LITEMODE
+
+@implementation GameOverScene
+
++(id) scene
+{
+	// 'scene' is an autorelease object.
+	CCScene *scene = [CCScene node];
+	
+	// 'layer' is an autorelease object.
+	GameOverScene *layer = [GameOverScene node];
+	
+	// add layer as a child to scene
+	[scene addChild: layer];
+	
+	// return the scene
+	return scene;
+}
+
+//- (id) initWithScore:(float) score
+- (id) initWithScore:(float) score setDifficulty:(enum GameDifficulty) difficulty setMode:(enum GameMode) mode setLevel:(int) level highScore:(BOOL) newHigh
+{
+	if( (self=[super init] )) {
+        
+        isIpad = [CCDirector sharedDirector].winSize.width == 1024 ? YES : NO;
+        
+        CCSprite* menuNormalSprite;
+        CCSprite* menuSelectSprite;
+		CCSprite* normalSprite2;
+        CCSprite* selectedSprite2;
+        CCSprite* difficultyNormalSprite;
+        CCSprite* difficultySelectSprite;
+        
+        if(isIpad) {
+            menuNormalSprite = [CCSprite spriteWithFile:@"MainMenuButtonOver-hd.png"];
+            menuSelectSprite = [CCSprite spriteWithFile:@"MainMenuButtonOver-hd.png"];
+            normalSprite2 = [CCSprite spriteWithFile:@"RetryButtonOver-hd.png"];
+            selectedSprite2 = [CCSprite spriteWithFile:@"RetryButtonOver-hd.png"];
+            difficultyNormalSprite = [CCSprite spriteWithFile:@"MainMenuButtonOver-hd.png"];
+            difficultySelectSprite = [CCSprite spriteWithFile:@"MainMenuButtonOver-hd.png"];
+        } else {
+            menuNormalSprite = [CCSprite spriteWithFile:@"MainMenuButtonOver.png"];
+            menuSelectSprite = [CCSprite spriteWithFile:@"MainMenuButtonOver.png"];
+            normalSprite2 = [CCSprite spriteWithFile:@"RetryButtonOver.png"];
+            selectedSprite2 = [CCSprite spriteWithFile:@"RetryButtonOver.png"];
+            difficultyNormalSprite = [CCSprite spriteWithFile:@"MainMenuButtonOver.png"];
+            difficultySelectSprite = [CCSprite spriteWithFile:@"MainMenuButtonOver.png"];
+        }
+        
+        CCMenuItemSprite *menuItem1 = [CCMenuItemSprite itemFromNormalSprite:menuNormalSprite selectedSprite:menuSelectSprite target:self selector:@selector(onMenu:)];
+
+        CCMenuItemSprite *menuItem2 = [CCMenuItemSprite itemFromNormalSprite:normalSprite2 selectedSprite:selectedSprite2 target:self selector:@selector(onRetry:)];
+        
+        CCMenuItemSprite *menuItem3 = [CCMenuItemSprite itemFromNormalSprite:difficultyNormalSprite selectedSprite:difficultySelectSprite target:self selector:@selector(onDifficulty:)];
+        
+        curDiff = difficulty;
+        curMode = mode;
+        curLevel = level;
+		
+		screenSize = [[CCDirector sharedDirector] winSize];
+		
+		CCMenu *menu;
+        if(curMode == COLLECTOR)
+        {
+            menu = [CCMenu menuWithItems:menuItem1, menuItem2, nil];
+        }else{
+#ifdef LITEMODE
+            menu = [CCMenu menuWithItems:menuItem2, menuItem1, nil];
+#else
+            menu = [CCMenu menuWithItems:menuItem3, menuItem2, nil];
+#endif
+        }
+		[menu alignItemsHorizontally];
+		menu.position = ccp(screenSize.width/2, screenSize.height/2 - screenSize.height/6);
+		[self addChild:menu];
+		
+		//NSString *endText = @"Game Over!";
+        NSString *totalEndText;
+        if (curMode == COLLECTOR)
+        {
+            NSNumberFormatter *formatter = [[NSNumberFormatter alloc] init];  
+            [formatter setNumberStyle:NSNumberFormatterDecimalStyle];
+            NSString *formattedOutput = [formatter stringFromNumber:[NSNumber numberWithInteger:(int)score]];
+
+            totalEndText = @"Score: ";
+            totalEndText = [totalEndText stringByAppendingString:formattedOutput];
+        } else {
+            NSString *endScoreText = @"Time: ";
+            totalEndText = [endScoreText stringByAppendingString:[self formattedHighScore:score]];
+        }
+        
+        float litemodeOffset = 0.0f;
+#ifdef LITEMODE
+        litemodeOffset = 32.0f;
+#endif
+        
+		//CCLabelTTF *title = [CCLabelTTF labelWithString:endText fontName:@"Futura" fontSize:80];
+        CCSprite *title;
+        if(isIpad) {
+            title = [CCSprite spriteWithFile:@"GameOverSmall-hd.png"];
+        } else {
+            title = [CCSprite spriteWithFile:@"GameOverSmall.png"];
+        }
+		title.position = ccp(screenSize.width/2, screenSize.height/2 + screenSize.height/6);
+		//title.color = ccc3(250, 0, 0);
+		[self addChild:title];
+        
+        if(newHigh)
+        {
+            CCSprite *highScore;
+            if(isIpad) {
+                highScore = [CCSprite spriteWithFile:@"NewHighScore-hd.png"];
+            } else {
+                highScore = [CCSprite spriteWithFile:@"NewHighScore.png"];
+            }
+            highScore.position = ccp(50, 280);
+            if(isIpad) {
+                highScore.position = ccp(100, 620);
+            }
+            [self addChild:highScore];
+        }
+		
+        int scoreFontSize = 25;
+        if(isIpad) {
+            scoreFontSize = 50;
+        }
+		CCLabelTTF *scoreLabel = [CCLabelTTF labelWithString:totalEndText fontName:@"Futura" fontSize:scoreFontSize];
+        if(curMode == COLLECTOR) {
+            scoreLabel.position = ccp(screenSize.width/2, screenSize.height - 2.5*screenSize.height/8 - 25);
+        } else {
+            scoreLabel.position = ccp(screenSize.width/2, screenSize.height - 2.5*screenSize.height/8);
+        }
+        scoreLabel.position = ccp(screenSize.width/2, screenSize.height/2);
+		[self addChild:scoreLabel];
+        
+#ifdef LITEMODE
+        NSArray * subviews = [[CCDirector sharedDirector]openGLView].subviews;
+        for (ADBannerView *adView in subviews) {
+            adView.hidden = NO;
+            //[sv release];
+        }
+#endif
+        
+        CCParticleSystem* particle_system = [CCParticleSystemQuad particleWithFile:@"gameOver.plist"];
+        [self addChild:particle_system z:-2];
+        particle_system.blendFunc = (ccBlendFunc){GL_ONE, GL_ONE};
+        if(isIpad) {
+            particle_system.endSize = particle_system.endSize * 2;
+            particle_system.totalParticles = particle_system.totalParticles * 0.5;
+        }
+        particle_system.position = ccp(screenSize.width/2, screenSize.height/2);
+        [particle_system resetSystem];
+        
+        if(![[SimpleAudioEngine sharedEngine] isBackgroundMusicPlaying]) { [[SimpleAudioEngine sharedEngine] playBackgroundMusic:@"gameOver.mp3" loop:YES]; }
+        
+        CCSprite *bg = [CCSprite spriteWithFile:@"redBg.png"];
+        bg.position = ccp(240,160);
+        //[self addChild:bg z:-100];
+	}
+	return self;
+}
+
+-(NSString*) formattedHighScore:(float) time
+{
+	int minutes = time / 60;
+	int seconds = (int) time % 60;
+	int milliseconds = (int) (time * 100) % 100;
+	NSString *formattedTime;
+	
+	if (seconds < 10)
+	{	
+		if (milliseconds < 10)
+			formattedTime = [NSString stringWithFormat:@"%i:0%i.0%i", minutes, seconds, milliseconds];
+		else
+			formattedTime = [NSString stringWithFormat:@"%i:0%i.%i", minutes, seconds, milliseconds];
+	}
+	else
+	{	
+		if (milliseconds < 10)
+			formattedTime = [NSString stringWithFormat:@"%i:%i.0%i", minutes, seconds, milliseconds];
+		else
+			formattedTime = [NSString stringWithFormat:@"%i:%i.%i", minutes, seconds, milliseconds];
+	}	
+	return formattedTime;
+}
+
+- (void)onMenu:(id)sender
+{
+    [[SimpleAudioEngine sharedEngine] stopBackgroundMusic];
+    [[SimpleAudioEngine sharedEngine] playEffect:@"buttonClick.WAV"];
+	NSLog(@"on menu");
+	[[CCDirector sharedDirector] replaceScene:[[MainMenu node] initSurvival]];
+}
+
+- (void)onRetry:(id)sender
+{
+    [[SimpleAudioEngine sharedEngine] stopBackgroundMusic];
+    [[SimpleAudioEngine sharedEngine] playEffect:@"buttonClick.WAV"];
+	NSLog(@"on retry");
+	[[CCDirector sharedDirector] replaceScene:[CCTransitionFade transitionWithDuration:1.0 scene:[[Game node] initWithGameDifficulty:curDiff setMode:curMode levelNum:curLevel worldNum:1]]];
+}
+
+- (void)onDifficulty:(id)sender
+{
+    [[SimpleAudioEngine sharedEngine] playEffect:@"buttonClick.WAV"];
+    [[SimpleAudioEngine sharedEngine] pauseBackgroundMusic];
+	NSLog(@"on difficulty");
+	[[CCDirector sharedDirector] replaceScene:[[MainMenu node] initDifficulty:curMode]];
+	//[[CCDirector sharedDirector] replaceScene:[[Difficulty node] initWithMode:curMode]];
+}
+
+// on "dealloc" you need to release all your retained objects
+- (void) dealloc
+{
+	// in case you have something to dealloc, do it in this method
+	// in this particular example nothing needs to be released.
+	// cocos2d will automatically release all the children (Label)
+	
+	// don't forget to call "super dealloc"
+	[super dealloc];
+}
+@end
+
